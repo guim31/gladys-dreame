@@ -64,8 +64,13 @@ test('the link action asks for the credentials, the password as a secret', () =>
   const link = manifest.actions.find((action) => action.key === 'dreame_link');
   const byKey = Object.fromEntries(link.fields.map((field) => [field.key, field]));
   assert.equal(byKey.username.type, 'string');
-  // never echoed back to the browser, rendered as a password input
-  assert.equal(byKey.password.type, 'secret');
+  // Not `secret`: the Gladys action form never shows what is typed in a secret
+  // field (it passes no touched secrets), so nothing could be entered.
+  assert.equal(byKey.password.type, 'string');
+  assert.equal(byKey.password.required, true);
+  // Gladys applies no default to an action field and enforces `required`: an
+  // untouched required select would be refused, so the code defaults it.
+  assert.equal(byKey.region.required, false);
   assert.equal(byKey.region.default, DEFAULT_REGION);
   assert.deepEqual(
     byKey.region.options.map((option) => option.value),

@@ -1,9 +1,7 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "categories": [
-    "appliances"
-  ],
+  "categories": ["appliances"],
   "name": "Dreame",
   "description": {
     "en": "Robot vacuums of the Dreamehome app: state, start/stop, suction, dock, rooms, shortcuts.",
@@ -13,9 +11,7 @@
   "docker_image": "ghcr.io/guim31/gladys-dreame:0.2.0",
   "gladys_version": ">=4.86.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-dreame/main/cover.jpg",
-  "transports": [
-    "cloud"
-  ],
+  "transports": ["cloud"],
   "config_schema": [
     {
       "key": "dreame_account",
@@ -89,17 +85,21 @@
         },
         {
           "key": "password",
-          "type": "secret",
+          "type": "string",
           "required": true,
           "label": {
             "en": "Password",
             "fr": "Mot de passe"
+          },
+          "description": {
+            "en": "Shown while you type (Gladys cannot mask a field of an action yet), never stored: only the fingerprint the Dreamehome app sends itself is kept.",
+            "fr": "Affiché pendant la saisie (Gladys ne sait pas encore masquer un champ d'action), jamais enregistré : seule l'empreinte que l'application Dreamehome envoie elle-même est conservée."
           }
         },
         {
           "key": "region",
           "type": "select",
-          "required": true,
+          "required": false,
           "default": "eu",
           "label": {
             "en": "Account region",
@@ -148,7 +148,11 @@
                 "fr": "Corée du Sud"
               }
             }
-          ]
+          ],
+          "description": {
+            "en": "Europe when left empty.",
+            "fr": "Europe si vous ne choisissez rien."
+          }
         }
       ]
     },
