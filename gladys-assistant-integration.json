@@ -1,0 +1,188 @@
+{
+  "manifest_version": 1,
+  "type": "device",
+  "categories": ["appliances"],
+  "name": "Dreame",
+  "description": {
+    "en": "Robot vacuums of the Dreamehome app: state, start/stop, suction, dock, rooms, shortcuts.",
+    "fr": "Aspirateurs robots Dreamehome : état, marche/arrêt, aspiration, base, pièces et raccourcis."
+  },
+  "version": "0.1.0",
+  "docker_image": "ghcr.io/guim31/gladys-dreame:0.1.0",
+  "gladys_version": ">=4.86.0",
+  "cover_image": "https://raw.githubusercontent.com/guim31/gladys-dreame/main/cover.jpg",
+  "transports": ["cloud"],
+  "config_schema": [
+    {
+      "key": "dreame_account",
+      "type": "section",
+      "label": {
+        "en": "Dreamehome account",
+        "fr": "Compte Dreamehome"
+      },
+      "description": {
+        "en": "Link the account your robots are paired with, in the Actions box below: its email (or phone number), its password and its region. The password is only used to log in: a fingerprint is kept to reconnect silently, never the password itself. An account created with Google, Apple or a text message code has no password: set one first in the Dreamehome app.",
+        "fr": "Liez le compte auquel vos robots sont associés, dans la boîte Actions ci-dessous : son e-mail (ou numéro de téléphone), son mot de passe et sa région. Le mot de passe ne sert qu'à la connexion : seule une empreinte est conservée pour se reconnecter en silence, jamais le mot de passe lui-même. Un compte créé avec Google, Apple ou un code reçu par SMS n'a pas de mot de passe : définissez-en un d'abord dans l'application Dreamehome."
+      }
+    },
+    {
+      "key": "language",
+      "type": "select",
+      "display": "radio",
+      "label": {
+        "en": "Language of the names",
+        "fr": "Langue des noms"
+      },
+      "description": {
+        "en": "Language of the feature names, room names and error texts. Feature names are set when a device is created: to rename them after a change, delete and add the device again.",
+        "fr": "Langue des noms de fonctionnalités, des pièces et des textes d'erreur. Les noms de fonctionnalités sont fixés à la création d'un appareil : pour les renommer après un changement, supprimez puis rajoutez l'appareil."
+      },
+      "required": false,
+      "default": "fr",
+      "options": [
+        {
+          "value": "fr",
+          "label": {
+            "en": "French",
+            "fr": "Français"
+          }
+        },
+        {
+          "value": "en",
+          "label": {
+            "en": "English",
+            "fr": "Anglais"
+          }
+        }
+      ]
+    }
+  ],
+  "actions": [
+    {
+      "key": "dreame_link",
+      "label": {
+        "en": "Link the account",
+        "fr": "Lier le compte"
+      },
+      "description": {
+        "en": "Logs in to the Dreamehome cloud, then lists your robots. The region is the one chosen in the app when the account was created.",
+        "fr": "Se connecte au cloud Dreamehome, puis liste vos robots. La région est celle choisie dans l'application à la création du compte."
+      },
+      "timeout_seconds": 120,
+      "fields": [
+        {
+          "key": "username",
+          "type": "string",
+          "required": true,
+          "label": {
+            "en": "Email or phone number",
+            "fr": "E-mail ou numéro de téléphone"
+          },
+          "placeholder": {
+            "en": "user@example.com",
+            "fr": "utilisateur@exemple.fr"
+          }
+        },
+        {
+          "key": "password",
+          "type": "secret",
+          "required": true,
+          "label": {
+            "en": "Password",
+            "fr": "Mot de passe"
+          }
+        },
+        {
+          "key": "region",
+          "type": "select",
+          "required": true,
+          "default": "eu",
+          "label": {
+            "en": "Account region",
+            "fr": "Région du compte"
+          },
+          "options": [
+            {
+              "value": "eu",
+              "label": {
+                "en": "Europe",
+                "fr": "Europe"
+              }
+            },
+            {
+              "value": "us",
+              "label": {
+                "en": "North America",
+                "fr": "Amérique du Nord"
+              }
+            },
+            {
+              "value": "cn",
+              "label": {
+                "en": "Mainland China",
+                "fr": "Chine continentale"
+              }
+            },
+            {
+              "value": "ru",
+              "label": {
+                "en": "Russia",
+                "fr": "Russie"
+              }
+            },
+            {
+              "value": "sg",
+              "label": {
+                "en": "Asia (Singapore)",
+                "fr": "Asie (Singapour)"
+              }
+            },
+            {
+              "value": "kr",
+              "label": {
+                "en": "South Korea",
+                "fr": "Corée du Sud"
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "dreame_unlink",
+      "label": {
+        "en": "Unlink the account",
+        "fr": "Délier le compte"
+      },
+      "description": {
+        "en": "Forgets the session and the password fingerprint; the robots are no longer discovered.",
+        "fr": "Oublie la session et l'empreinte du mot de passe ; les robots ne sont plus découverts."
+      },
+      "timeout_seconds": 30
+    },
+    {
+      "key": "dreame_diagnostic",
+      "label": {
+        "en": "Diagnostic",
+        "fr": "Diagnostic"
+      },
+      "description": {
+        "en": "Shows what the integration sees of your robots (model, firmware, raw values, map reading). Paste it into a forum post or a GitHub issue to report a problem: it contains no email, no identifier and no room name.",
+        "fr": "Affiche ce que l'intégration voit de vos robots (modèle, firmware, valeurs brutes, lecture de la carte). Collez-le dans un message du forum ou une issue GitHub pour signaler un problème : il ne contient ni e-mail, ni identifiant, ni nom de pièce."
+      },
+      "timeout_seconds": 120,
+      "fields": [
+        {
+          "key": "device",
+          "type": "select",
+          "source": "devices",
+          "required": false,
+          "label": {
+            "en": "Robot (all when empty)",
+            "fr": "Robot (tous si vide)"
+          }
+        }
+      ]
+    }
+  ]
+}

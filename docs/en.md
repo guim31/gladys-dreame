@@ -1,0 +1,75 @@
+# Dreame
+
+Control the robot vacuums of your Dreamehome account from Gladys Assistant.
+
+This integration serves the robots **paired in the Dreamehome app**. It goes
+through the Dreamehome cloud, as these robots offer no command on the local
+network, and receives their changes **in real time**: a clean that ends, an error
+or a return to the dock shows up in Gladys at once.
+
+> A Dreame robot paired in the **Xiaomi Home** app (Mi Home) answers on another
+> cloud: it is not supported by this integration.
+
+## Features
+
+For each robot of your account:
+
+- **State** — cleaning, paused, returning to the dock, charging, docked, error.
+- **Cleaning** — start a full clean (or resume the paused one), and stop it.
+- **Return to dock**, **Pause** and **Locate the robot** (it plays a sound).
+- **Suction power** — carried by the Gladys clean mode: _Quiet_, _Auto_
+  (standard), _Deep Clean_ (strong) and _Vacuum_ (turbo), as for the other robot
+  vacuums of Gladys.
+- **Battery**, and **Error**: the message of the robot in plain words ("Main brush
+  tangled", "Clean water tank empty"...), "No error" otherwise.
+- **Room to clean** — the rooms of your robot's map; picking one starts cleaning
+  it, and the list goes back to "—" once the room is done.
+- **Shortcuts** — one button per shortcut created in the Dreamehome app. It keeps
+  all its settings: rooms, order, suction, water flow, passes, mopping.
+- **Consumables** — the remaining life, in percent, of each wear part your robot
+  tracks: brushes, filter, sensors, mop pads and, depending on the station, tank
+  filter, detergent, squeegee...
+
+Only the features your robot actually has are offered.
+
+## Configuration
+
+1. In the integration, **Actions** box, fill in **Link the account**: the email
+   (or phone number) and password of your Dreamehome account, then its region —
+   the one chosen in the app when the account was created — and click the button.
+2. Open the **Discovery** tab and add your robots to Gladys.
+
+The password is only used to log in. It is never stored: only a fingerprint, the
+one the Dreamehome app sends itself, is kept to reopen the session without asking
+you anything. The **Unlink the account** action erases everything.
+
+> An account created with Google, Apple or a text message code has no password.
+> Set one first in the Dreamehome app (profile, account settings), then link the
+> account here.
+
+The **Language of the names** setting picks the language of the feature names, room
+names and error messages. Feature names are set when the device is created.
+
+## In scenes
+
+- Trigger on the **state**: for instance, be warned when the robot goes "Error",
+  then read the message of the **Error** feature.
+- "Control a device" action: **Cleaning** on _Clean_ to start the robot, **Room to
+  clean** on a room, or a **Shortcut** button.
+
+## Reporting a problem
+
+The **Diagnostic** action shows what the integration sees of your robots: model,
+firmware, raw values, map reading. Paste its result into a Gladys forum post or a
+GitHub issue. It contains no email, no identifier and no room name.
+
+## Limitations
+
+- Choosing between vacuuming only and mopping, and the water flow, cannot be set
+  from Gladys yet: their encoding varies between models, and a wrong write would
+  change your settings. An app shortcut covers that need.
+- Mapping is started from the Dreamehome app, not from Gladys.
+- The robots of the MOVAhome and Trouver apps are not supported.
+- This integration was written without a robot at hand, from the protocol of the
+  reference Home Assistant integration: your feedback (and the result of the
+  **Diagnostic**) validates it model by model.
