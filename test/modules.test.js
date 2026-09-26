@@ -15,6 +15,7 @@ import {
   modelKey,
   usesNewStateNumbering,
 } from '../src/dreame/models.js';
+import { mergeSettings, parseSettings } from '../src/dreame/settings.js';
 import { parseShortcuts } from '../src/dreame/shortcuts.js';
 import {
   DreameMqttChannel,
@@ -79,6 +80,29 @@ test('shortcuts are read from the robot property, names decoded', () => {
   assert.deepEqual(parseShortcuts(''), []);
   assert.deepEqual(parseShortcuts('not json'), []);
   assert.deepEqual(parseShortcuts(undefined), []);
+});
+
+// --- Settings (4.50) ---------------------------------------------------------------------
+
+test('a pushed setting is merged into the known list, a read list replaces it', () => {
+  const list = JSON.stringify([
+    { k: 'CleanRoute', v: 1 },
+    { k: 'LessColl', v: 1 },
+  ]);
+  const merged = mergeSettings(list, '{"k":"CleanRoute","v":3}');
+  assert.deepEqual(
+    [...parseSettings(merged)],
+    [
+      ['CleanRoute', 3],
+      ['LessColl', 1],
+    ],
+  );
+  assert.deepEqual(
+    [...parseSettings(mergeSettings(merged, '[{"k":"SmartHost","v":0}]'))],
+    [['SmartHost', 0]],
+  );
+  assert.equal(parseSettings('garbage'), null);
+  assert.equal(mergeSettings(list, 'garbage'), 'garbage');
 });
 
 // --- Session ---------------------------------------------------------------------------------

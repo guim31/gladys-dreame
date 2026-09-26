@@ -38,8 +38,9 @@ Each robot exposes:
 | State             | `vacuum-cleaner` / `state`       | 2.1, with 2.2, 3.2, 4.1, 4.7, 4.17 (see below)       |
 | Cleaning          | `vacuum-cleaner` / `run-mode`    | Clean → start/resume (action 2.1), Idle → stop (4.2) |
 | Return to dock    | `vacuum-cleaner` / `dock`        | action 3.1                                           |
-| Pause             | `button` / `push`                | action 2.2                                           |
+| Pause / resume    | `button` / `push`                | action 2.2, or 2.1 when the task is paused           |
 | Suction power     | `vacuum-cleaner` / `clean-mode`  | 4.4 (table below)                                    |
+| Cleaning route    | `text` / `select`                | `CleanRoute` in the settings list 4.50 (one key set) |
 | Battery           | `battery` / `integer`            | 3.1                                                  |
 | Error             | `text` / `text`                  | 2.2, described in the configured language            |
 | Room to clean     | `text` / `select`                | segment clean: action 4.1, kind 18                   |

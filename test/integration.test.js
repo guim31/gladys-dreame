@@ -72,6 +72,7 @@ test('a linked account, from discovery to commands', async (t) => {
         'dock',
         'pause',
         'clean-mode',
+        'route',
         'battery',
         'error',
         'room',
@@ -163,11 +164,36 @@ test('a linked account, from discovery to commands', async (t) => {
       /four suction levels/,
     );
 
+    // the cleaning route: one setting written, the others kept
+    await dreame.setValue(gladys.devices[0], { external_id: ids.feature('route') }, 'deep');
+    assert.deepEqual(fake.state.commands.at(-1).params, [
+      { did: ROBOT.did, siid: 4, piid: 50, value: '{"k":"CleanRoute","v":3}' },
+    ]);
+    assert.equal(statesOf('route').at(-1).text, 'deep');
+    assert.match(fake.state.props.get('4.50'), /"LessColl"/);
+
     await dreame.setValue(gladys.devices[0], { external_id: ids.feature('shortcut-33') }, 1);
     assert.deepEqual(fake.state.commands.at(-1).params.in, [
       { piid: 1, value: 25 },
       { piid: 10, value: '33' },
     ]);
+  });
+
+  await t.test('the pause button pauses, then resumes', async () => {
+    await fake.change([
+      ['2.1', 1],
+      ['4.1', 2],
+      ['4.7', 1],
+    ]);
+    await waitUntil(() => statesOf('state').at(-1).state === 1, 'the running state');
+    await dreame.setValue(gladys.devices[0], { external_id: ids.feature('pause') }, 1);
+    const pause = fake.state.commands.at(-1).params;
+    assert.deepEqual([pause.siid, pause.aiid], [2, 2]);
+    await waitUntil(() => statesOf('state').at(-1).state === 2, 'the paused state');
+    await dreame.setValue(gladys.devices[0], { external_id: ids.feature('pause') }, 1);
+    const resume = fake.state.commands.at(-1).params;
+    assert.deepEqual([resume.siid, resume.aiid], [2, 1]);
+    await waitUntil(() => statesOf('state').at(-1).state === 1, 'running again');
   });
 
   await t.test('a room clean, then the selector goes back to "—" when it is over', async () => {

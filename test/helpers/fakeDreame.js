@@ -17,6 +17,7 @@ import { Aedes } from 'aedes';
 
 import { hashPassword } from '../../src/dreame/cloud.js';
 import { mapIvFor } from '../../src/dreame/models.js';
+import { mergeSettings } from '../../src/dreame/settings.js';
 import { buildMapFrame, segment } from './mapFrame.js';
 
 export const ACCOUNT = {
@@ -65,6 +66,13 @@ export function initialProperties() {
     ['4.23', (3 << 16) | (20 << 8) | 1],
     ['4.25', 0],
     ['4.48', JSON.stringify(SHORTCUTS)],
+    [
+      '4.50',
+      JSON.stringify([
+        { k: 'LessColl', v: 1 },
+        { k: 'CleanRoute', v: 1 },
+      ]),
+    ],
     ['9.2', 87],
     ['10.2', 64],
     ['11.1', 55],
@@ -205,7 +213,13 @@ export async function startFakeDreame({ mapInAnswer = true, requireMqttAuth = tr
         if (!state.props.has(key)) {
           return { did, siid, piid, code: -4004 };
         }
-        setTimeout(() => change([[key, value]]), 20);
+        if (key === '4.50') {
+          // one setting written, the whole list kept; the push carries only it
+          state.props.set(key, mergeSettings(state.props.get(key), value));
+          setTimeout(() => push([[key, value]]), 20);
+        } else {
+          setTimeout(() => change([[key, value]]), 20);
+        }
         return { did, siid, piid, code: 0 };
       });
     }

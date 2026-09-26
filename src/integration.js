@@ -22,13 +22,21 @@ import {
   PROP,
   ROOM_SELECTION_NONE,
   STATUS_PROPERTIES,
+  VACUUM_CLEANER_STATE,
 } from './constants.js';
 import { convertDevice, didOf, vacuumExternalIds } from './devices/convertDevice.js';
-import { buildCommand, buildStates, isRoomCleaning } from './devices/vacuum.js';
+import {
+  buildCommand,
+  buildStates,
+  gladysStateOf,
+  isRoomCleaning,
+  routeOf,
+} from './devices/vacuum.js';
 import { AUTH_FAILURE, DreameApiError, DreameAuthError, DreameCloud } from './dreame/cloud.js';
 import { usesNewStateNumbering } from './dreame/models.js';
 import { DreameMqttChannel } from './dreame/mqtt.js';
 import { fetchRooms } from './dreame/rooms.js';
+import { mergeSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
 import { MESSAGES } from './messages.js';
 import { RobotStore } from './store.js';
@@ -92,6 +100,20 @@ export function firmwareOf(record) {
     }
   }
   return null;
+}
+
+/**
+ * Record a property value of a robot. The settings list (4.50) is merged: a
+ * robot pushes (and is written) one setting at a time.
+ * @param {object} robot the robot
+ * @param {string} key `siid.piid`
+ * @param {*} value the value
+ */
+export function setProp(robot, key, value) {
+  robot.props.set(
+    key,
+    key === PROP.AUTO_SWITCH ? mergeSettings(robot.props.get(key), value) : value,
+  );
 }
 
 export class DreameIntegration {
@@ -525,7 +547,7 @@ export class DreameIntegration {
       }
       robot.capabilities = new Set(props.keys());
       for (const [key, value] of props) {
-        robot.props.set(key, value);
+        setProp(robot, key, value);
       }
       robot.reachable = true;
       robot.lastError = null;
@@ -539,6 +561,11 @@ export class DreameIntegration {
       robot.capabilities =
         robot.capabilities || new Set(cached ? cached.capabilities : BASE_CAPABILITIES);
     }
+    if (robot.reachable) {
+      robot.hasRoute = routeOf(robot.props) !== null;
+    } else if (robot.hasRoute === undefined) {
+      robot.hasRoute = Boolean(cached && cached.hasRoute);
+    }
     if (robot.props.has(PROP.SHORTCUTS)) {
       robot.shortcuts = parseShortcuts(robot.props.get(PROP.SHORTCUTS));
     } else if (cached && robot.shortcuts.length === 0) {
@@ -546,18 +573,24 @@ export class DreameIntegration {
     }
     let roomsRead = false;
     if (robot.reachable) {
+      const trace = [];
       try {
         robot.rooms = await this.guard(() =>
           fetchRooms(this.cloud, robot, {
             waitForPush: (ms) => this.waitForMapLocation(robot, ms),
+            trace,
           }),
         );
         roomsRead = true;
+        this.logger.info(`Rooms of "${robot.name}": ${trace.join(' | ')}`);
       } catch (err) {
         if (err instanceof DreameAuthError) {
           throw err;
         }
-        this.logger.warn(`Could not read the rooms of "${robot.name}": ${err.message}`);
+        // Each step of the map reading, so a user's log tells where it stops.
+        this.logger.warn(
+          `Could not read the rooms of "${robot.name}": ${err.message} (${trace.join(' | ')})`,
+        );
       }
     }
     // A map read without rooms is the truth (map deleted in the app); only a
@@ -573,6 +606,7 @@ export class DreameIntegration {
       capabilities: [...robot.capabilities],
       rooms: robot.rooms,
       shortcuts: robot.shortcuts,
+      hasRoute: Boolean(robot.hasRoute),
     });
   }
 
@@ -648,7 +682,7 @@ export class DreameIntegration {
   onPush(robot, changes) {
     let shortcutsChanged = false;
     for (const { key, value } of changes) {
-      robot.props.set(key, value);
+      setProp(robot, key, value);
       if (key === '6.3' && typeof value === 'string' && value) {
         this.resolveMapWaiters(robot, { objectName: value, frame: null });
       }
@@ -740,7 +774,7 @@ export class DreameIntegration {
     try {
       const props = await this.guard(() => cloud.getProperties(robot, keys));
       for (const [key, value] of props) {
-        robot.props.set(key, value);
+        setProp(robot, key, value);
       }
       robot.reachable = true;
       robot.lastError = null;
@@ -788,13 +822,15 @@ export class DreameIntegration {
         return;
       }
     }
-    const command = buildCommand(code, value, robot.props);
+    const command = buildCommand(code, value, robot.props, {
+      paused: gladysStateOf(robot.props, robot.newNumbering) === VACUUM_CLEANER_STATE.PAUSED,
+    });
     if (!command) {
       return;
     }
     if (command.kind === 'set') {
       await this.guard(() => cloud.setProperty(robot, command.key, command.value));
-      robot.props.set(command.key, command.value);
+      setProp(robot, command.key, command.value);
     } else {
       await this.guard(() => cloud.action(robot, command.action, command.params));
     }

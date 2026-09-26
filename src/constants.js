@@ -122,6 +122,9 @@ export const PROP = {
   CLEANING_MODE: '4.23',
   SELF_WASH_BASE_STATUS: '4.25',
   SHORTCUTS: '4.48',
+  // The app's switchable settings, a JSON list of { k, v }; a push may carry a
+  // single { k, v } object, and a write sets one key.
+  AUTO_SWITCH: '4.50',
   MAP_LIST: '6.8',
 };
 
@@ -165,6 +168,7 @@ export const STATUS_PROPERTIES = [
   PROP.CLEANING_PAUSED,
   PROP.CLEANING_MODE,
   PROP.SELF_WASH_BASE_STATUS,
+  PROP.AUTO_SWITCH,
 ];
 export const DISCOVERY_PROPERTIES = [
   ...STATUS_PROPERTIES,
@@ -381,6 +385,7 @@ export const FEATURE_CODES = {
   BATTERY: 'battery',
   ERROR: 'error',
   ROOM: 'room',
+  ROUTE: 'route',
   SHORTCUT_PREFIX: 'shortcut-',
   CONSUMABLE_PREFIX: 'consumable-',
 };
@@ -393,3 +398,15 @@ export const ROOM_SELECTION_NONE = 'none';
 export const ROOM_CLEAN_REPEATS = 1;
 // Water level sent with a room clean when the robot reports none.
 export const DEFAULT_WATER_LEVEL = 2;
+
+// --- Cleaning route (auto-switch setting `CleanRoute`) -----------------------------
+// The "Quick / Standard / Intensive / Deep" choice of the app, on the robots
+// that have it. Written one key at a time, like the app: the other settings of
+// the list are left untouched.
+export const ROUTE_SETTING = 'CleanRoute';
+export const ROUTES = [
+  { value: 'quick', code: 4 },
+  { value: 'standard', code: 1 },
+  { value: 'intensive', code: 2 },
+  { value: 'deep', code: 3 },
+];

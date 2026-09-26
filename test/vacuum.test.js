@@ -474,6 +474,36 @@ test('a shortcut starts with its id, keeping everything saved in the app', () =>
   ]);
 });
 
+test('the pause button resumes a paused robot', () => {
+  assert.deepEqual(buildCommand('pause', 1, props([]), { paused: false }).action, [2, 2]);
+  assert.deepEqual(buildCommand('pause', 1, props([]), { paused: true }).action, [2, 1]);
+});
+
+test('the cleaning route is read from the settings and written one key at a time', () => {
+  const settings = JSON.stringify([
+    { k: 'LessColl', v: 1 },
+    { k: 'CleanRoute', v: 4 },
+  ]);
+  const states = buildStates(ids, props([['4.50', settings]]), {
+    newNumbering: true,
+    language: 'fr',
+  });
+  assert.deepEqual(states, [{ device_feature_external_id: ids.feature('route'), text: 'quick' }]);
+  assert.deepEqual(buildCommand('route', 'intensive', props([])), {
+    kind: 'set',
+    key: '4.50',
+    value: '{"k":"CleanRoute","v":2}',
+  });
+  assert.throws(() => buildCommand('route', 'turbo', props([])), UnsupportedCommandError);
+  const route = buildVacuumFeatures(ids, { capabilities: new Set(), hasRoute: true }, 'fr').find(
+    (feature) => feature.external_id === ids.feature('route'),
+  );
+  assert.deepEqual(
+    route.supported_options.map((option) => option.label),
+    ['Rapide', 'Standard', 'Intensif', 'En profondeur'],
+  );
+});
+
 test('a read-only feature cannot be controlled', () => {
   assert.throws(() => buildCommand('battery', 50, props([])), UnsupportedCommandError);
 });

@@ -60,6 +60,7 @@ export function convertDevice(gladys, robot, language) {
         capabilities: robot.capabilities,
         rooms: namedRooms(robot.rooms, language),
         shortcuts: robot.shortcuts,
+        hasRoute: Boolean(robot.hasRoute),
       },
       language,
     ),

@@ -6,8 +6,9 @@
 //   - state        vacuum-cleaner / state        <- 2.1 state (+ 2.2, 3.2, 4.1, 4.7, 4.17)
 //   - run-mode     vacuum-cleaner / run-mode     -> start/resume (2.1) / stop (4.2)
 //   - dock         vacuum-cleaner / dock         -> charge (3.1)
-//   - pause        button / push                 -> pause (2.2)
+//   - pause        button / push                 -> pause (2.2), or resume (2.1) when paused
 //   - clean-mode   vacuum-cleaner / clean-mode   <-> 4.4 suction level
+//   - route        text / select                 <-> CleanRoute in the settings (4.50)
 //   - battery      battery / integer             <- 3.1
 //   - error        text / text                   <- 2.2, described
 //   - room         text / select                 -> segment clean (4.1, kind 18)
@@ -44,14 +45,28 @@ import {
   PROP,
   ROOM_CLEAN_REPEATS,
   ROOM_SELECTION_NONE,
+  ROUTES,
+  ROUTE_SETTING,
   START_CUSTOM_PIID,
   SUCTION_TO_CLEAN_MODE,
   VACUUM_CLEANER_MODE,
   VACUUM_CLEANER_STATE,
 } from '../constants.js';
+import { parseSettings } from '../dreame/settings.js';
 import { describeError, texts } from '../i18n.js';
 
 // --- Features --------------------------------------------------------------------
+
+/**
+ * The cleaning route the robot is set to, when it has that setting.
+ * @param {Map<string, *>} props the robot properties
+ * @returns {object|null} the ROUTES entry, or null
+ */
+export function routeOf(props) {
+  const settings = parseSettings(props.get(PROP.AUTO_SWITCH));
+  const code = settings ? toNumber(settings.get(ROUTE_SETTING)) : null;
+  return ROUTES.find((route) => route.code === code) || null;
+}
 
 /**
  * Build the Gladys features of a robot.
@@ -60,10 +75,15 @@ import { describeError, texts } from '../i18n.js';
  * @param {Set<string>} robot.capabilities the `siid.piid` keys the robot answered
  * @param {Array} [robot.rooms] `[{ id, name }]`
  * @param {Array} [robot.shortcuts] `[{ id, name }]`
+ * @param {boolean} [robot.hasRoute] whether it has the cleaning route setting
  * @param {string} language `fr` or `en`
  * @returns {Array} Gladys device features
  */
-export function buildVacuumFeatures(ids, { capabilities, rooms = [], shortcuts = [] }, language) {
+export function buildVacuumFeatures(
+  ids,
+  { capabilities, rooms = [], shortcuts = [], hasRoute = false },
+  language,
+) {
   const t = texts(language);
   const has = (key) => capabilities.has(key);
   const features = [];
@@ -103,6 +123,21 @@ export function buildVacuumFeatures(ids, { capabilities, rooms = [], shortcuts =
       has_feedback: true,
       min: 0,
       max: 6,
+    });
+  }
+  if (hasRoute) {
+    add(FEATURE_CODES.ROUTE, t.features.route, {
+      category: DEVICE_FEATURE_CATEGORIES.TEXT,
+      type: DEVICE_FEATURE_TYPES.TEXT.SELECT,
+      read_only: false,
+      has_feedback: true,
+      min: 0,
+      max: 0,
+      supported_options: ROUTES.map((route, index) => ({
+        value: route.value,
+        label: t.routes[route.value],
+        sort_order: index,
+      })),
     });
   }
   if (has(PROP.BATTERY)) {
@@ -318,6 +353,13 @@ export function buildStates(ids, props, { newNumbering, language }) {
   if (cleanMode !== undefined) {
     push(FEATURE_CODES.CLEAN_MODE, cleanMode);
   }
+  const route = routeOf(props);
+  if (route) {
+    states.push({
+      device_feature_external_id: ids.feature(FEATURE_CODES.ROUTE),
+      text: route.value,
+    });
+  }
   const battery = toNumber(props.get(PROP.BATTERY));
   if (battery !== null) {
     push(FEATURE_CODES.BATTERY, clamp(battery, BATTERY_BOUNDS));
@@ -378,11 +420,13 @@ export function waterLevelOf(props) {
  * @param {string} code the feature code (last segment of its external id)
  * @param {*} value the value Gladys sent
  * @param {Map<string, *>} props the robot properties (for room cleans)
+ * @param {object} [context] what the robot is doing
+ * @param {boolean} [context.paused] whether its task is paused
  * @returns {object|null} `{ kind: 'action', action, params }`,
  *   `{ kind: 'set', key, value }`, or null when there is nothing to do
  * @throws {UnsupportedCommandError} when the value cannot be honoured
  */
-export function buildCommand(code, value, props) {
+export function buildCommand(code, value, props, { paused = false } = {}) {
   const number = toNumber(value);
   if (code === FEATURE_CODES.RUN_MODE) {
     if (number === VACUUM_CLEANER_MODE.CLEANING) {
@@ -410,7 +454,22 @@ export function buildCommand(code, value, props) {
     return number === 1 ? { kind: 'action', action: ACTION.CHARGE, params: [] } : null;
   }
   if (code === FEATURE_CODES.PAUSE) {
-    return number === 1 ? { kind: 'action', action: ACTION.PAUSE, params: [] } : null;
+    if (number !== 1) {
+      return null;
+    }
+    // One button both ways, as on the robot: a second press resumes.
+    return { kind: 'action', action: paused ? ACTION.START : ACTION.PAUSE, params: [] };
+  }
+  if (code === FEATURE_CODES.ROUTE) {
+    const route = ROUTES.find((candidate) => candidate.value === value);
+    if (!route) {
+      throw new UnsupportedCommandError(`Unknown cleaning route "${value}"`);
+    }
+    return {
+      kind: 'set',
+      key: PROP.AUTO_SWITCH,
+      value: JSON.stringify({ k: ROUTE_SETTING, v: route.code }),
+    };
   }
   if (code === FEATURE_CODES.LOCATE) {
     return number === 1 ? { kind: 'action', action: ACTION.LOCATE, params: [] } : null;

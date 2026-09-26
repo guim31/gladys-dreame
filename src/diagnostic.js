@@ -16,6 +16,7 @@ import { DISCOVERY_PROPERTIES, PROP } from './constants.js';
 import { gladysStateOf } from './devices/vacuum.js';
 import { isKnownModel, mapIvFor, usesNewStateNumbering } from './dreame/models.js';
 import { fetchRooms } from './dreame/rooms.js';
+import { parseSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
 import { firmwareOf, isRobotVacuum } from './integration.js';
 import { REGION_NAMES } from './messages.js';
@@ -105,12 +106,18 @@ async function diagnoseRobot(integration, record, index) {
   }
   const answered = DISCOVERY_PROPERTIES.filter((key) => props.has(key));
   const values = answered
-    .filter((key) => key !== PROP.SHORTCUTS)
+    .filter((key) => key !== PROP.SHORTCUTS && key !== PROP.AUTO_SWITCH)
     .map((key) => `${key}=${JSON.stringify(props.get(key))}`);
   lines.push(`  Properties answered: ${answered.length}/${DISCOVERY_PROPERTIES.length}`);
   lines.push(`  Values: ${values.join(' ')}`);
   lines.push(
     `  Missing: ${DISCOVERY_PROPERTIES.filter((key) => !props.has(key)).join(' ') || 'none'}`,
+  );
+  const settings = parseSettings(props.get(PROP.AUTO_SWITCH));
+  lines.push(
+    `  Settings (4.50): ${
+      settings ? [...settings].map(([k, v]) => `${k}=${JSON.stringify(v)}`).join(' ') : 'none'
+    }`,
   );
   lines.push(`  Gladys state computed: ${gladysStateOf(props, newNumbering)}`);
   lines.push(
