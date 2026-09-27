@@ -39,8 +39,8 @@ Each robot exposes:
 | Cleaning          | `vacuum-cleaner` / `run-mode`    | Clean → start/resume (action 2.1), Idle → stop (4.2) |
 | Return to dock    | `vacuum-cleaner` / `dock`        | action 3.1                                           |
 | Pause / resume    | `button` / `push`                | action 2.2, or 2.1 when the task is paused           |
-| Suction power     | `vacuum-cleaner` / `clean-mode`  | 4.4 (table below)                                    |
-| Cleaning route    | `text` / `select`                | `CleanRoute` in the settings list 4.50 (one key set) |
+| Suction power     | `text` / `select`                | 4.4: quiet 0, standard 1, strong 2, turbo 3          |
+| Floor washing     | `text` / `select`                | `CleanRoute` in the settings list 4.50 (one key set) |
 | Battery           | `battery` / `integer`            | 3.1                                                  |
 | Error             | `text` / `text`                  | 2.2, described in the configured language            |
 | Room to clean     | `text` / `select`                | segment clean: action 4.1, kind 18                   |
@@ -62,20 +62,13 @@ come from the model table.
 The run mode is _Clean_ only while a task actively runs, so choosing _Clean_ on a
 paused robot resumes it.
 
-### Suction power ↔ clean mode
+### Suction power
 
-Gladys has one clean-mode list; Dreame has four suction levels. The mapping follows
-the other vacuum integrations of the store (Roborock, Xiaomi Home), so a scene
-reads the same whatever the brand:
-
-| Dreame   | 4.4 | Gladys clean mode |
-| -------- | --- | ----------------- |
-| Quiet    | 0   | Quiet             |
-| Standard | 1   | Auto              |
-| Strong   | 2   | Deep Clean        |
-| Turbo    | 3   | Vacuum            |
-
-_Quick_, _Low Noise_ and _Mop_ are refused with an explicit error.
+A select with the four levels of the app, in its order. It replaced the Gladys
+clean mode (0.2.3): that list has seven fixed entries, with names and an order
+the integration cannot change, and the first tester could not tell which of
+them did what. The clean mode stays understood as a command (Quiet, Auto, Deep
+Clean, Vacuum → the four levels) for the devices created before.
 
 **Mopping mode and water flow are deliberately not writable yet.** On the robots
 with a self-washing station, property 4.23 packs the cleaning mode, the mop
@@ -86,7 +79,9 @@ added once validated on real robots; meanwhile an app shortcut covers the need.
 
 ### Rooms
 
-A room clean sends the room with the suction the robot is set to and its water
+Recent firmwares keep the rooms not in the current map but in the saved map
+embedded in it (`rism`, same format, not encrypted), read when `seg_inf` is
+missing. A room clean sends the room with the suction the robot is set to and its water
 level (third byte of 4.23 on self-washing stations, 4.5 otherwise), once. Rooms
 are named as the app names them: by type when they have one ("Kitchen",
 "Primary bedroom 2"), else by the name the user gave. The selector goes back to

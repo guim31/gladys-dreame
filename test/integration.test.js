@@ -71,7 +71,7 @@ test('a linked account, from discovery to commands', async (t) => {
         'run-mode',
         'dock',
         'pause',
-        'clean-mode',
+        'suction',
         'route',
         'battery',
         'error',
@@ -118,7 +118,7 @@ test('a linked account, from discovery to commands', async (t) => {
     );
     assert.equal(byCode.state.state, 6); // docked, charging completed
     assert.equal(byCode['run-mode'].state, 0);
-    assert.equal(byCode['clean-mode'].state, 0); // standard suction = Auto
+    assert.equal(byCode.suction.text, 'standard');
     assert.equal(byCode.battery.state, 100);
     assert.equal(byCode.error.text, 'Aucune erreur');
     assert.equal(byCode['consumable-main-brush'].state, 87);
@@ -152,16 +152,16 @@ test('a linked account, from discovery to commands', async (t) => {
     );
     await waitUntil(() => statesOf('run-mode').at(-1).state === 0, 'the robot stopping');
 
-    await dreame.setValue(gladys.devices[0], { external_id: ids.feature('clean-mode') }, 5);
+    await dreame.setValue(gladys.devices[0], { external_id: ids.feature('suction') }, 'turbo');
     assert.deepEqual(fake.state.commands.at(-1).params, [
       { did: ROBOT.did, siid: 4, piid: 4, value: 3 },
     ]);
     // optimistic: the confirmed value is already published
-    assert.equal(statesOf('clean-mode').at(-1).state, 5);
+    assert.equal(statesOf('suction').at(-1).text, 'turbo');
 
     await assert.rejects(
-      dreame.setValue(gladys.devices[0], { external_id: ids.feature('clean-mode') }, 6),
-      /four suction levels/,
+      dreame.setValue(gladys.devices[0], { external_id: ids.feature('suction') }, 'max'),
+      /Unknown suction level/,
     );
 
     // the cleaning route: one setting written, the others kept
@@ -253,7 +253,7 @@ test('a session Dreame refuses stops everything and asks to link again', async (
 });
 
 test('linking an account, then unlinking it', async (t) => {
-  const fake = await startFakeDreame({ mapInAnswer: false });
+  const fake = await startFakeDreame({ mapInAnswer: false, roomsInSavedMap: true });
   const { gladys, dreame } = setup(fake, {});
   t.after(async () => {
     dreame.stopAll();
@@ -285,7 +285,8 @@ test('linking an account, then unlinking it', async (t) => {
     !JSON.stringify(gladys.configWrites).includes(ACCOUNT.password),
     'the clear password is never stored',
   );
-  // the map location came on the real-time channel this time
+  // the map location came on the real-time channel this time, and the rooms
+  // from the saved map embedded in the current one
   const room = gladys.discovered.at(-1)[0].features.find((f) => code(f.external_id) === 'room');
   assert.equal(room.supported_options.length, 5);
 

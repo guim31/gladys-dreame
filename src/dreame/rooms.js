@@ -72,7 +72,15 @@ export async function fetchRooms(cloud, robot, { waitForPush = null, trace = [] 
   if (frame.frameType !== FULL_FRAME) {
     throw new MapDecodeError(`not a full map frame (type ${frame.frameType})`);
   }
-  const rooms = roomsOf(frame);
+  // Key names only: they tell where a firmware keeps its rooms.
+  trace.push(`map keys: ${Object.keys(frame.data).sort().join(' ') || 'none'}`);
+  let rooms = roomsOf(frame);
+  if (!frame.data.seg_inf && typeof frame.data.rism === 'string') {
+    // Recent firmwares keep the rooms in the saved map embedded in the
+    // current one (`rism`), a frame of the same format.
+    rooms = roomsOf(decodeMapFrame(frame.data.rism, { iv }));
+    trace.push(`rooms read from the embedded saved map (rism)`);
+  }
   trace.push(`map decoded: ${frame.width}x${frame.height}, ${rooms.length} room(s)`);
   return rooms;
 }

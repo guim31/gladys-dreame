@@ -245,7 +245,28 @@ test('the run mode is Cleaning only while a task actively runs', () => {
   assert.equal(mode(docked), MODE.IDLE);
 });
 
-test('the suction level is the clean mode, like the other vacuum integrations', () => {
+test('the suction is a select of the four levels of the app, in its order', () => {
+  const suction = buildVacuumFeatures(ids, { capabilities: new Set(['4.4']) }, 'fr').find(
+    (feature) => feature.external_id === ids.feature('suction'),
+  );
+  assert.equal(suction.name, "Puissance d'aspiration");
+  assert.deepEqual(
+    suction.supported_options.map((option) => option.label),
+    ['Silencieux', 'Standard', 'Intense', 'Max'],
+  );
+  const states = buildStates(ids, props([['4.4', 2]]), { newNumbering: true, language: 'fr' });
+  assert.equal(
+    states.find((state) => state.device_feature_external_id === ids.feature('suction')).text,
+    'strong',
+  );
+  assert.deepEqual(buildCommand('suction', 'quiet', props([])), {
+    kind: 'set',
+    key: '4.4',
+    value: 0,
+  });
+});
+
+test('the clean mode still carries the suction, for the devices created before', () => {
   const cleanMode = (suction) =>
     buildStates(ids, props([...docked, ['4.4', suction]]), {
       newNumbering: true,
@@ -356,7 +377,7 @@ test('every feature is valid for Gladys, NOT NULL columns included', () => {
     'run-mode',
     'dock',
     'pause',
-    'clean-mode',
+    'suction',
     'battery',
     'error',
     'room',

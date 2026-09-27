@@ -19,11 +19,11 @@ Pour chaque robot de votre compte :
   pause) et l'arrêter.
 - **Retour à la base**, **Pause / reprise** (un second appui relance le robot) et
   **Localiser le robot** (il se signale par un son).
-- **Puissance d'aspiration** — portée par le mode de nettoyage de Gladys :
-  _Silencieux_, _Auto_ (standard), _Nettoyage profond_ (fort) et _Aspiration_
-  (turbo), comme pour les autres aspirateurs robots de Gladys.
-- **Itinéraire de nettoyage** — _Rapide_, _Standard_, _Intensif_ ou _En profondeur_,
-  comme dans l'application, sur les robots qui ont ce réglage.
+- **Puissance d'aspiration** — _Silencieux_, _Standard_, _Intense_ ou _Max_, comme
+  dans l'application.
+- **Lavage du sol** — l'itinéraire de l'application : _Rapide_, _Standard_, _Intensif_
+  ou _En profondeur_, sur les robots qui ont ce réglage (en aspiration seule, seuls
+  _Rapide_ et _Standard_ sont acceptés).
 - **Batterie**, et **Erreur** : le message du robot en clair (« Brosse principale
   bloquée », « Réservoir d'eau propre vide »…), « Aucune erreur » sinon.
 - **Pièce à nettoyer** — les pièces de la carte de votre robot ; en choisir une
@@ -39,9 +39,8 @@ Seules les fonctionnalités que votre robot possède réellement sont proposées
 
 > Sur le tableau de bord, Gladys affiche le nom générique d'une fonctionnalité quand
 > elle est seule de son type : **Mode de fonctionnement** est le nettoyage
-> (_Nettoyer_ / _Repos_), **Mode de nettoyage** la puissance d'aspiration (_Silencieux_,
-> _Auto_ = standard, _Nettoyage profond_ = intense, _Aspiration_ = max) et **Texte**
-> le message d'erreur. Vous pouvez renommer ces lignes dans la boîte du tableau de bord.
+> (_Nettoyer_ / _Repos_) et **Texte** le message d'erreur. Vous pouvez renommer ces
+> lignes dans la boîte du tableau de bord.
 
 ## Configuration
 

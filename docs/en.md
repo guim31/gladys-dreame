@@ -18,11 +18,10 @@ For each robot of your account:
 - **Cleaning** — start a full clean (or resume the paused one), and stop it.
 - **Return to dock**, **Pause / resume** (a second press restarts the robot) and
   **Locate the robot** (it plays a sound).
-- **Suction power** — carried by the Gladys clean mode: _Quiet_, _Auto_
-  (standard), _Deep Clean_ (strong) and _Vacuum_ (turbo), as for the other robot
-  vacuums of Gladys.
-- **Cleaning route** — _Quick_, _Standard_, _Intensive_ or _Deep_, as in the app, on
-  the robots that have this setting.
+- **Suction power** — _Quiet_, _Standard_, _Strong_ or _Max_, as in the app.
+- **Floor washing** — the route of the app: _Quick_, _Standard_, _Intensive_ or
+  _Deep_, on the robots that have this setting (vacuuming only accepts _Quick_ and
+  _Standard_).
 - **Battery**, and **Error**: the message of the robot in plain words ("Main brush
   tangled", "Clean water tank empty"...), "No error" otherwise.
 - **Room to clean** — the rooms of your robot's map; picking one starts cleaning
@@ -36,9 +35,8 @@ For each robot of your account:
 Only the features your robot actually has are offered.
 
 > On the dashboard, Gladys shows the generic name of a feature that is alone of its
-> type: **Run Mode** is the cleaning (_Clean_ / _Idle_), **Clean Mode** the suction
-> power (_Quiet_, _Auto_ = standard, _Deep Clean_ = strong, _Vacuum_ = max) and
-> **Text** the error message. These rows can be renamed in the dashboard box.
+> type: **Run Mode** is the cleaning (_Clean_ / _Idle_) and **Text** the error
+> message. These rows can be renamed in the dashboard box.
 
 ## Configuration
 

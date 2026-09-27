@@ -18,7 +18,8 @@ const TEXTS = {
       dock: 'Retour à la base',
       pause: 'Pause / reprise',
       locate: 'Localiser le robot',
-      route: 'Itinéraire de nettoyage',
+      route: 'Lavage du sol',
+      suction: "Puissance d'aspiration",
       battery: 'Batterie',
       error: 'Erreur',
       room: 'Pièce à nettoyer',
@@ -47,6 +48,7 @@ const TEXTS = {
       'filter-cleaning': 'Nettoyage du filtre',
     },
     routes: { quick: 'Rapide', standard: 'Standard', intensive: 'Intensif', deep: 'En profondeur' },
+    suctions: { quiet: 'Silencieux', standard: 'Standard', strong: 'Intense', turbo: 'Max' },
     // Names of the room types of the Dreamehome app.
     roomTypes: {
       0: 'Pièce',
@@ -176,7 +178,8 @@ const TEXTS = {
       dock: 'Return to dock',
       pause: 'Pause / resume',
       locate: 'Locate the robot',
-      route: 'Cleaning route',
+      route: 'Floor washing',
+      suction: 'Suction power',
       battery: 'Battery',
       error: 'Error',
       room: 'Room to clean',
@@ -205,6 +208,7 @@ const TEXTS = {
       'filter-cleaning': 'Filter cleaning',
     },
     routes: { quick: 'Quick', standard: 'Standard', intensive: 'Intensive', deep: 'Deep' },
+    suctions: { quiet: 'Quiet', standard: 'Standard', strong: 'Strong', turbo: 'Max' },
     roomTypes: {
       0: 'Room',
       1: 'Living room',

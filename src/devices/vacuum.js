@@ -7,7 +7,8 @@
 //   - run-mode     vacuum-cleaner / run-mode     -> start/resume (2.1) / stop (4.2)
 //   - dock         vacuum-cleaner / dock         -> charge (3.1)
 //   - pause        button / push                 -> pause (2.2), or resume (2.1) when paused
-//   - clean-mode   vacuum-cleaner / clean-mode   <-> 4.4 suction level
+//   - suction      text / select                 <-> 4.4 suction level, the app's four
+//   - clean-mode   vacuum-cleaner / clean-mode   -> 4.4, for the devices created before
 //   - route        text / select                 <-> CleanRoute in the settings (4.50)
 //   - battery      battery / integer             <- 3.1
 //   - error        text / text                   <- 2.2, described
@@ -47,6 +48,7 @@ import {
   ROOM_SELECTION_NONE,
   ROUTES,
   ROUTE_SETTING,
+  SUCTION_LEVELS,
   START_CUSTOM_PIID,
   SUCTION_TO_CLEAN_MODE,
   VACUUM_CLEANER_MODE,
@@ -116,13 +118,18 @@ export function buildVacuumFeatures(
   });
   add(FEATURE_CODES.PAUSE, t.features.pause, pushButton());
   if (has(PROP.SUCTION_LEVEL)) {
-    add(FEATURE_CODES.CLEAN_MODE, t.features['clean-mode'], {
-      category: DEVICE_FEATURE_CATEGORIES.VACUUM_CLEANER,
-      type: DEVICE_FEATURE_TYPES.VACUUM_CLEANER.CLEAN_MODE,
+    add(FEATURE_CODES.SUCTION, t.features.suction, {
+      category: DEVICE_FEATURE_CATEGORIES.TEXT,
+      type: DEVICE_FEATURE_TYPES.TEXT.SELECT,
       read_only: false,
       has_feedback: true,
       min: 0,
-      max: 6,
+      max: 0,
+      supported_options: SUCTION_LEVELS.map((level, index) => ({
+        value: level.value,
+        label: t.suctions[level.value],
+        sort_order: index,
+      })),
     });
   }
   if (hasRoute) {
@@ -349,7 +356,16 @@ export function buildStates(ids, props, { newNumbering, language }) {
     push(FEATURE_CODES.STATE, gladysState);
     push(FEATURE_CODES.RUN_MODE, runModeOf(props, gladysState, newNumbering));
   }
-  const cleanMode = SUCTION_TO_CLEAN_MODE[toNumber(props.get(PROP.SUCTION_LEVEL))];
+  const suction = toNumber(props.get(PROP.SUCTION_LEVEL));
+  const level = SUCTION_LEVELS.find((candidate) => candidate.code === suction);
+  if (level) {
+    states.push({
+      device_feature_external_id: ids.feature(FEATURE_CODES.SUCTION),
+      text: level.value,
+    });
+  }
+  // Devices created before the suction select still carry the clean mode.
+  const cleanMode = SUCTION_TO_CLEAN_MODE[suction];
   if (cleanMode !== undefined) {
     push(FEATURE_CODES.CLEAN_MODE, cleanMode);
   }
@@ -459,6 +475,13 @@ export function buildCommand(code, value, props, { paused = false } = {}) {
     }
     // One button both ways, as on the robot: a second press resumes.
     return { kind: 'action', action: paused ? ACTION.START : ACTION.PAUSE, params: [] };
+  }
+  if (code === FEATURE_CODES.SUCTION) {
+    const level = SUCTION_LEVELS.find((candidate) => candidate.value === value);
+    if (!level) {
+      throw new UnsupportedCommandError(`Unknown suction level "${value}"`);
+    }
+    return { kind: 'set', key: PROP.SUCTION_LEVEL, value: level.code };
   }
   if (code === FEATURE_CODES.ROUTE) {
     const route = ROUTES.find((candidate) => candidate.value === value);

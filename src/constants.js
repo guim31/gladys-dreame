@@ -386,6 +386,7 @@ export const FEATURE_CODES = {
   ERROR: 'error',
   ROOM: 'room',
   ROUTE: 'route',
+  SUCTION: 'suction',
   SHORTCUT_PREFIX: 'shortcut-',
   CONSUMABLE_PREFIX: 'consumable-',
 };
@@ -409,4 +410,16 @@ export const ROUTES = [
   { value: 'standard', code: 1 },
   { value: 'intensive', code: 2 },
   { value: 'deep', code: 3 },
+];
+
+// --- Suction level (4.4) as the app lists it -----------------------------------------
+// A select with the app's own four levels, in its order: the Gladys clean mode
+// list above cannot be renamed nor narrowed, and testers could not tell which
+// of its seven entries did what. The clean mode stays understood as a command
+// for the devices created before.
+export const SUCTION_LEVELS = [
+  { value: 'quiet', code: 0 },
+  { value: 'standard', code: 1 },
+  { value: 'strong', code: 2 },
+  { value: 'turbo', code: 3 },
 ];

@@ -88,7 +88,11 @@ export function initialProperties() {
  * @param {boolean} [options.requireMqttAuth] the broker checks the token
  * @returns {Promise<object>} the fake, with its state and helpers
  */
-export async function startFakeDreame({ mapInAnswer = true, requireMqttAuth = true } = {}) {
+export async function startFakeDreame({
+  mapInAnswer = true,
+  requireMqttAuth = true,
+  roomsInSavedMap = false,
+} = {}) {
   const state = {
     accessToken: 'access-1',
     refreshToken: 'refresh-1',
@@ -156,8 +160,12 @@ export async function startFakeDreame({ mapInAnswer = true, requireMqttAuth = tr
   };
 
   const objectName = `${ROBOT.model}/${ACCOUNT.uid}/${ROBOT.did}/map-1700000000`;
+  // Some firmwares (dreame.vacuum.r2449a) keep the rooms only in the saved
+  // map embedded in the current one, under `rism`.
   const mapFrame = buildMapFrame({
-    data: { seg_inf: ROOMS, timestamp_ms: 1700000000000 },
+    data: roomsInSavedMap
+      ? { timestamp_ms: 1700000000000, rism: buildMapFrame({ data: { seg_inf: ROOMS } }) }
+      : { seg_inf: ROOMS, timestamp_ms: 1700000000000 },
     key: MAP_KEY,
     iv: mapIvFor(ROBOT.model).iv,
   });
