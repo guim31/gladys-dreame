@@ -15,17 +15,32 @@ or a return to the dock shows up in Gladys at once.
 For each robot of your account:
 
 - **State** — cleaning, paused, returning to the dock, charging, docked, error.
-- **Cleaning** — start a full clean (or resume the paused one), and stop it.
+- **Cleaning** — start a full clean (or resume the paused one), and stop it. The
+  robot cleans the whole home with the current **Cleaning mode** and settings.
 - **Return to dock**, **Pause / resume** (a second press restarts the robot) and
   **Locate the robot** (it plays a sound).
-- **Suction power** — _Quiet_, _Standard_, _Strong_ or _Max_, as in the app.
-- **Floor washing** — the route of the app: _Quick_, _Standard_, _Intensive_ or
-  _Deep_, on the robots that have this setting (vacuuming only accepts _Quick_ and
-  _Standard_).
+- **Cleaning mode** — _Vacuum_, _Mop_, _Vacuum and mop_, _Mop after vacuum_ or
+  _Customize room cleaning_ (each room keeps the settings chosen for it in the
+  app), as in the app. Offered on the robots whose mops lift.
+- **Suction power** — _Quiet_, _Standard_, _Strong_ or _Max_, and **Max suction
+  power** (for the next clean only, as in the app).
+- **Mop wetness** — from 1 (slightly dry) to 32 (wet).
+- **Mop washing frequency** — _By area_, _By time_ or _By room_, with two sliders:
+  the area (m²) between two washes _by area_, and the time (minutes) _by time_.
+  Each slider acts when its frequency is chosen; otherwise its value is kept for
+  when it is. The wetter the mops, the more often they are washed: above 26, no
+  more than 20 m² or 20 minutes between two washes.
+- **Cleaning route** — _Quick_, _Standard_, _Intensive_ or _Deep_, on the robots
+  that have this setting. A mode that vacuums only has _Quick_ and _Standard_:
+  switching to one brings an _Intensive_ or _Deep_ route back to _Standard_, as
+  the app does.
 - **Battery**, and **Error**: the message of the robot in plain words ("Main brush
   tangled", "Clean water tank empty"...), "No error" otherwise.
 - **Room to clean** — the rooms of your robot's map; picking one starts cleaning
   it, and the list goes back to "—" once the room is done.
+- **Several rooms** — a **Selection** switch per room, and the **Clean the
+  selection** button that cleans the rooms switched on, in the order of the map.
+  The selection is kept from one clean to the next.
 - **Shortcuts** — one button per shortcut created in the Dreamehome app. It keeps
   all its settings: rooms, order, suction, water flow, passes, mopping.
 - **Consumables** — the remaining life, in percent, of each wear part your robot
@@ -34,9 +49,12 @@ For each robot of your account:
 
 Only the features your robot actually has are offered.
 
+The settings apply to the next clean, started from Gladys or from the app, unless
+**CleanGenius** is on in the app: the robot then chooses by itself.
+
 > On the dashboard, Gladys shows the generic name of a feature that is alone of its
-> type: **Run Mode** is the cleaning (_Clean_ / _Idle_) and **Text** the error
-> message. These rows can be renamed in the dashboard box.
+> type: **Run Mode** is the cleaning (_Clean_ / _Idle_; _Mapping_ is not supported)
+> and **Text** the error message. These rows can be renamed in the dashboard box.
 
 ## Configuration
 
@@ -56,12 +74,18 @@ you anything. The **Unlink the account** action erases everything.
 The **Language of the names** setting picks the language of the feature names, room
 names and error messages. Feature names are set when the device is created.
 
+When an update of the integration adds features, or when you create a shortcut or
+a room in the app, the **Discovery** tab offers to **update** the device (rooms
+and shortcuts are read again every 6 hours, or at once with **Scan**).
+
 ## In scenes
 
 - Trigger on the **state**: for instance, be warned when the robot goes "Error",
   then read the message of the **Error** feature.
 - "Control a device" action: **Cleaning** on _Clean_ to start the robot, **Room to
   clean** on a room, or a **Shortcut** button.
+- Several rooms: switch their **Selection** on, then press **Clean the
+  selection**. The mode and settings are set the same way, before starting.
 
 ## Reporting a problem
 
@@ -71,9 +95,10 @@ GitHub issue. It contains no email, no identifier and no room name.
 
 ## Limitations
 
-- Choosing between vacuuming only and mopping, and the water flow, cannot be set
-  from Gladys yet: their encoding varies between models, and a wrong write would
-  change your settings. An app shortcut covers that need.
+- The cleaning mode and the mop settings are only offered to the models whose
+  encoding the integration knows (from the model table of the Home Assistant
+  integration): a wrong write would change your settings. An app shortcut covers
+  the other cases.
 - Mapping is started from the Dreamehome app, not from Gladys.
 - The robots of the MOVAhome and Trouver apps are not supported.
 - This integration was written without a robot at hand, from the protocol of the

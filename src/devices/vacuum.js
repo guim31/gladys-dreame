@@ -7,12 +7,20 @@
 //   - run-mode     vacuum-cleaner / run-mode     -> start/resume (2.1) / stop (4.2)
 //   - dock         vacuum-cleaner / dock         -> charge (3.1)
 //   - pause        button / push                 -> pause (2.2), or resume (2.1) when paused
+//   - cleaning-mode text / select                <-> 4.23 (+ 4.26), see dreame/mopping.js
 //   - suction      text / select                 <-> 4.4 suction level, the app's four
 //   - clean-mode   vacuum-cleaner / clean-mode   -> 4.4, for the devices created before
+//   - max-suction  switch / binary               <-> SuctionMax in the settings (4.50)
+//   - wetness      switch / dimmer               <-> 28.1 mop wetness, 1 to 32
+//   - mop-wash-frequency text / select           <-> BackWashType in the settings (4.50)
+//   - mop-wash-area switch / dimmer              <-> 4.23 byte 1, when washing by area
+//   - mop-wash-time switch / dimmer              <-> 4.23 byte 1, when washing by time
 //   - route        text / select                 <-> CleanRoute in the settings (4.50)
 //   - battery      battery / integer             <- 3.1
 //   - error        text / text                   <- 2.2, described
 //   - room         text / select                 -> segment clean (4.1, kind 18)
+//   - room-pick-<id> switch / binary             <-> the rooms picked, kept by the integration
+//   - clean-rooms  button / push                 -> segment clean of the rooms picked
 //   - shortcut-<id> button / push                -> shortcut (4.1, kind 25)
 //   - locate       button / push                 -> locate (7.1)
 //   - consumable-<part> maintenance / life-remaining <- the percent left
@@ -42,7 +50,12 @@ import {
   DREAME_TASK_STATUS_VALUES,
   DREAME_WARNING_CODES,
   FEATURE_CODES,
+  CLEANING_MODES,
+  MAX_SUCTION_SETTING,
   OLD_STATE_TO_NEW,
+  WASH_FREQUENCIES,
+  WASH_FREQUENCY_SETTING,
+  WETNESS_BOUNDS,
   PROP,
   ROOM_CLEAN_REPEATS,
   ROOM_SELECTION_NONE,
@@ -54,6 +67,16 @@ import {
   VACUUM_CLEANER_MODE,
   VACUUM_CLEANER_STATE,
 } from '../constants.js';
+import {
+  cleaningModeOf,
+  cleaningModeWrites,
+  routeAllowed,
+  sweepsOnly,
+  washFrequencyOf,
+  washLimits,
+  washValueOf,
+  washValueWrite,
+} from '../dreame/mopping.js';
 import { parseSettings } from '../dreame/settings.js';
 import { describeError, texts } from '../i18n.js';
 
@@ -71,6 +94,50 @@ export function routeOf(props) {
 }
 
 /**
+ * Whether the max suction boost is on.
+ * @param {Map<string, *>} props the robot properties
+ * @returns {number|null} 1 or 0, null when the robot has no such setting
+ */
+export function maxSuctionOf(props) {
+  const settings = parseSettings(props.get(PROP.AUTO_SWITCH));
+  if (!settings || !settings.has(MAX_SUCTION_SETTING)) {
+    return null;
+  }
+  return toNumber(settings.get(MAX_SUCTION_SETTING)) > 0 ? 1 : 0;
+}
+
+/**
+ * The washing frequency values to show on the two sliders: the robot's own
+ * for the frequency it is set to, the last one known for the other.
+ * @param {Map<string, *>} props the robot properties
+ * @param {object} mopping moppingOf() of the robot
+ * @param {object} [known] `{ area, time }` known so far
+ * @returns {{ area: number|null, time: number|null }} the values
+ */
+export function washValuesOf(props, mopping, known = {}) {
+  const result = { area: known.area ?? null, time: known.time ?? null };
+  const wash = washValueOf(props);
+  if (!mopping.washArea || !wash) {
+    return result;
+  }
+  const frequency = mopping.washFrequency ? washFrequencyOf(props) : null;
+  if (!mopping.washFrequency || (frequency && frequency.value === 'by-area')) {
+    result.area = wash;
+  } else if (frequency && frequency.value === 'by-time') {
+    result.time = wash;
+  }
+  return result;
+}
+
+function selectOptions(entries, labels) {
+  return entries.map((entry, index) => ({
+    value: entry.value,
+    label: labels[entry.value],
+    sort_order: index,
+  }));
+}
+
+/**
  * Build the Gladys features of a robot.
  * @param {object} ids external ids of the device (`{ device, feature(code) }`)
  * @param {object} robot what discovery learned
@@ -78,12 +145,21 @@ export function routeOf(props) {
  * @param {Array} [robot.rooms] `[{ id, name }]`
  * @param {Array} [robot.shortcuts] `[{ id, name }]`
  * @param {boolean} [robot.hasRoute] whether it has the cleaning route setting
+ * @param {Set<string>} [robot.settingKeys] the settings (4.50) it has
+ * @param {object} [robot.mopping] moppingOf() of the robot
  * @param {string} language `fr` or `en`
  * @returns {Array} Gladys device features
  */
 export function buildVacuumFeatures(
   ids,
-  { capabilities, rooms = [], shortcuts = [], hasRoute = false },
+  {
+    capabilities,
+    rooms = [],
+    shortcuts = [],
+    hasRoute = false,
+    settingKeys = new Set(),
+    mopping = null,
+  },
   language,
 ) {
   const t = texts(language);
@@ -117,6 +193,17 @@ export function buildVacuumFeatures(
     max: 1,
   });
   add(FEATURE_CODES.PAUSE, t.features.pause, pushButton());
+  if (mopping && mopping.cleaningMode) {
+    const modes = CLEANING_MODES.filter(
+      (mode) =>
+        (mode.value !== 'mopping-after-sweeping' || mopping.afterSweeping) &&
+        (mode.value !== 'custom' || mopping.custom),
+    );
+    add(FEATURE_CODES.CLEANING_MODE, t.features['cleaning-mode'], {
+      ...textSelect(),
+      supported_options: selectOptions(modes, t.cleaningModes),
+    });
+  }
   if (has(PROP.SUCTION_LEVEL)) {
     add(FEATURE_CODES.SUCTION, t.features.suction, {
       category: DEVICE_FEATURE_CATEGORIES.TEXT,
@@ -131,6 +218,43 @@ export function buildVacuumFeatures(
         sort_order: index,
       })),
     });
+  }
+  if (settingKeys.has(MAX_SUCTION_SETTING)) {
+    add(FEATURE_CODES.MAX_SUCTION, t.features['max-suction'], switchBinary());
+  }
+  if (mopping && mopping.wetness) {
+    add(FEATURE_CODES.WETNESS, t.features.wetness, {
+      ...slider(),
+      min: WETNESS_BOUNDS.MIN,
+      max: WETNESS_BOUNDS.MAX,
+    });
+  }
+  if (mopping && mopping.washFrequency) {
+    add(FEATURE_CODES.WASH_FREQUENCY, t.features['mop-wash-frequency'], {
+      ...textSelect(),
+      supported_options: selectOptions(WASH_FREQUENCIES, t.washFrequencies),
+    });
+  }
+  if (mopping && (mopping.washArea || mopping.washTime)) {
+    // The widest bounds: the current ones depend on the wetness, and are
+    // enforced when a value is set.
+    const limits = washLimits(mopping, null);
+    if (mopping.washArea) {
+      add(FEATURE_CODES.WASH_AREA, t.features['mop-wash-area'], {
+        ...slider(),
+        unit: DEVICE_FEATURE_UNITS.SQUARE_METER,
+        min: limits.area.min,
+        max: limits.area.max,
+      });
+    }
+    if (mopping.washTime) {
+      add(FEATURE_CODES.WASH_TIME, t.features['mop-wash-time'], {
+        ...slider(),
+        unit: DEVICE_FEATURE_UNITS.MINUTES,
+        min: limits.time.min,
+        max: limits.time.max,
+      });
+    }
   }
   if (hasRoute) {
     add(FEATURE_CODES.ROUTE, t.features.route, {
@@ -187,6 +311,15 @@ export function buildVacuumFeatures(
         })),
       ],
     });
+    // Several rooms at once: switch the rooms on, then press the button.
+    for (const room of rooms) {
+      add(
+        `${FEATURE_CODES.ROOM_PICK_PREFIX}${room.id}`,
+        `${t.features['room-pick']} - ${room.name}`,
+        switchBinary(),
+      );
+    }
+    add(FEATURE_CODES.CLEAN_ROOMS, t.features['clean-rooms'], pushButton());
   }
   for (const shortcut of shortcuts) {
     add(
@@ -212,6 +345,38 @@ export function buildVacuumFeatures(
     });
   }
   return features;
+}
+
+function textSelect() {
+  return {
+    category: DEVICE_FEATURE_CATEGORIES.TEXT,
+    type: DEVICE_FEATURE_TYPES.TEXT.SELECT,
+    read_only: false,
+    has_feedback: true,
+    min: 0,
+    max: 0,
+  };
+}
+
+function switchBinary() {
+  return {
+    category: DEVICE_FEATURE_CATEGORIES.SWITCH,
+    type: DEVICE_FEATURE_TYPES.SWITCH.BINARY,
+    read_only: false,
+    has_feedback: true,
+    min: 0,
+    max: 1,
+  };
+}
+
+// A slider: the only settable number the Gladys dashboard draws.
+function slider() {
+  return {
+    category: DEVICE_FEATURE_CATEGORIES.SWITCH,
+    type: DEVICE_FEATURE_TYPES.SWITCH.DIMMER,
+    read_only: false,
+    has_feedback: true,
+  };
 }
 
 function pushButton() {
@@ -344,12 +509,22 @@ export function runModeOf(props, gladysState, newNumbering) {
  * @param {object} context how to read them
  * @param {boolean} context.newNumbering whether the robot numbers its states the new way
  * @param {string} context.language `fr` or `en`
+ * @param {object} [context.mopping] moppingOf() of the robot
+ * @param {object} [context.washValues] washValuesOf() of the robot
+ * @param {Array} [context.rooms] `[{ id }]`, for the room switches
+ * @param {Set<string>} [context.picks] the ids of the rooms picked
  * @returns {Array} states for gladys.publishStates()
  */
-export function buildStates(ids, props, { newNumbering, language }) {
+export function buildStates(
+  ids,
+  props,
+  { newNumbering, language, mopping = null, washValues = null, rooms = [], picks = new Set() },
+) {
   const states = [];
   const push = (code, state) =>
     states.push({ device_feature_external_id: ids.feature(code), state });
+  const pushText = (code, text) =>
+    states.push({ device_feature_external_id: ids.feature(code), text });
 
   const gladysState = gladysStateOf(props, newNumbering);
   if (gladysState !== null) {
@@ -359,10 +534,7 @@ export function buildStates(ids, props, { newNumbering, language }) {
   const suction = toNumber(props.get(PROP.SUCTION_LEVEL));
   const level = SUCTION_LEVELS.find((candidate) => candidate.code === suction);
   if (level) {
-    states.push({
-      device_feature_external_id: ids.feature(FEATURE_CODES.SUCTION),
-      text: level.value,
-    });
+    pushText(FEATURE_CODES.SUCTION, level.value);
   }
   // Devices created before the suction select still carry the clean mode.
   const cleanMode = SUCTION_TO_CLEAN_MODE[suction];
@@ -371,10 +543,34 @@ export function buildStates(ids, props, { newNumbering, language }) {
   }
   const route = routeOf(props);
   if (route) {
-    states.push({
-      device_feature_external_id: ids.feature(FEATURE_CODES.ROUTE),
-      text: route.value,
-    });
+    pushText(FEATURE_CODES.ROUTE, route.value);
+  }
+  const maxSuction = maxSuctionOf(props);
+  if (maxSuction !== null) {
+    push(FEATURE_CODES.MAX_SUCTION, maxSuction);
+  }
+  if (mopping) {
+    const mode = cleaningModeOf(props, mopping);
+    if (mode) {
+      pushText(FEATURE_CODES.CLEANING_MODE, mode);
+    }
+    const wetness = toNumber(props.get(PROP.WETNESS_LEVEL));
+    if (mopping.wetness && wetness !== null) {
+      push(FEATURE_CODES.WETNESS, wetness);
+    }
+    const frequency = mopping.washFrequency ? washFrequencyOf(props) : null;
+    if (frequency) {
+      pushText(FEATURE_CODES.WASH_FREQUENCY, frequency.value);
+    }
+    if (washValues && mopping.washArea && washValues.area) {
+      push(FEATURE_CODES.WASH_AREA, washValues.area);
+    }
+    if (washValues && mopping.washTime && washValues.time) {
+      push(FEATURE_CODES.WASH_TIME, washValues.time);
+    }
+  }
+  for (const room of rooms) {
+    push(`${FEATURE_CODES.ROOM_PICK_PREFIX}${room.id}`, picks.has(String(room.id)) ? 1 : 0);
   }
   const battery = toNumber(props.get(PROP.BATTERY));
   if (battery !== null) {
@@ -382,10 +578,7 @@ export function buildStates(ids, props, { newNumbering, language }) {
   }
   const error = toNumber(props.get(PROP.ERROR));
   if (error !== null) {
-    states.push({
-      device_feature_external_id: ids.feature(FEATURE_CODES.ERROR),
-      text: describeError(error, language),
-    });
+    pushText(FEATURE_CODES.ERROR, describeError(error, language));
   }
   for (const consumable of CONSUMABLES) {
     const left = toNumber(props.get(consumable.prop));
@@ -432,17 +625,65 @@ export function waterLevelOf(props) {
 }
 
 /**
+ * A room clean: the rooms with the suction and water the robot is set to.
+ * @param {Array<number>} rooms the room ids, in cleaning order
+ * @param {Map<string, *>} props the robot properties
+ * @param {boolean} fixedIndex whether each entry carries 1 as its index (the
+ *   robots with room-by-room settings, and the fifth generation, stop
+ *   otherwise), rather than its position
+ * @returns {object} the START_CUSTOM action
+ */
+function roomClean(rooms, props, fixedIndex) {
+  const suction = toNumber(props.get(PROP.SUCTION_LEVEL));
+  const selects = rooms.map((room, index) => [
+    room,
+    ROOM_CLEAN_REPEATS,
+    suction === null ? 1 : suction,
+    waterLevelOf(props),
+    fixedIndex ? 1 : index + 1,
+  ]);
+  return {
+    kind: 'action',
+    action: ACTION.START_CUSTOM,
+    params: [
+      { piid: START_CUSTOM_PIID.STATUS, value: DREAME_STATUS.SEGMENT_CLEANING },
+      { piid: START_CUSTOM_PIID.PARAMETERS, value: JSON.stringify({ selects }) },
+    ],
+  };
+}
+
+function settingWrite(key, value) {
+  return { key: PROP.AUTO_SWITCH, value: JSON.stringify({ k: key, v: value }) };
+}
+
+function within(value, { min, max }) {
+  return Math.min(max, Math.max(min, Math.round(value)));
+}
+
+/**
  * The robot command a feature value stands for.
  * @param {string} code the feature code (last segment of its external id)
  * @param {*} value the value Gladys sent
  * @param {Map<string, *>} props the robot properties (for room cleans)
  * @param {object} [context] what the robot is doing
  * @param {boolean} [context.paused] whether its task is paused
+ * @param {object} [context.mopping] moppingOf() of the robot
+ * @param {object} [context.washValues] washValuesOf() of the robot
+ * @param {Array} [context.rooms] `[{ id }]`, in the order of the app
+ * @param {Set<string>} [context.picks] the ids of the rooms picked
  * @returns {object|null} `{ kind: 'action', action, params }`,
- *   `{ kind: 'set', key, value }`, or null when there is nothing to do
+ *   `{ kind: 'set', key, value }`, `{ kind: 'writes', writes }` (several
+ *   properties, in order), `{ kind: 'pick', room, on }`, or null when there is
+ *   nothing to do; `remember` (`{ area }` or `{ time }`) comes with a washing
+ *   frequency value to keep
  * @throws {UnsupportedCommandError} when the value cannot be honoured
  */
-export function buildCommand(code, value, props, { paused = false } = {}) {
+export function buildCommand(
+  code,
+  value,
+  props,
+  { paused = false, mopping = null, washValues = {}, rooms = [], picks = new Set() } = {},
+) {
   const number = toNumber(value);
   if (code === FEATURE_CODES.RUN_MODE) {
     if (number === VACUUM_CLEANER_MODE.CLEANING) {
@@ -481,18 +722,100 @@ export function buildCommand(code, value, props, { paused = false } = {}) {
     if (!level) {
       throw new UnsupportedCommandError(`Unknown suction level "${value}"`);
     }
-    return { kind: 'set', key: PROP.SUCTION_LEVEL, value: level.code };
+    const writes = [];
+    if (maxSuctionOf(props) === 1) {
+      // As in the app: a level chosen ends the max suction boost.
+      writes.push(settingWrite(MAX_SUCTION_SETTING, 0));
+    }
+    writes.push({ key: PROP.SUCTION_LEVEL, value: level.code });
+    return { kind: 'writes', writes };
+  }
+  if (code === FEATURE_CODES.MAX_SUCTION) {
+    return { kind: 'writes', writes: [settingWrite(MAX_SUCTION_SETTING, number > 0 ? 1 : 0)] };
   }
   if (code === FEATURE_CODES.ROUTE) {
     const route = ROUTES.find((candidate) => candidate.value === value);
     if (!route) {
       throw new UnsupportedCommandError(`Unknown cleaning route "${value}"`);
     }
+    if (mopping && !routeAllowed(route.code, cleaningModeOf(props, mopping), mopping)) {
+      throw new UnsupportedCommandError(
+        `The "${value}" route only exists when mopping: choose a mopping cleaning mode first`,
+      );
+    }
+    return { kind: 'writes', writes: [settingWrite(ROUTE_SETTING, route.code)] };
+  }
+  if (code === FEATURE_CODES.CLEANING_MODE) {
+    if (!mopping || !mopping.cleaningMode) {
+      throw new UnsupportedCommandError('The cleaning mode of this robot cannot be set');
+    }
+    let writes;
+    try {
+      writes = cleaningModeWrites(value, props, mopping);
+    } catch (err) {
+      throw new UnsupportedCommandError(err.message);
+    }
+    const route = routeOf(props);
+    if (route && sweepsOnly(value) && !routeAllowed(route.code, value, mopping)) {
+      // As in the app: a sweeping mode falls back on the standard route.
+      writes.push(settingWrite(ROUTE_SETTING, ROUTES.find((r) => r.value === 'standard').code));
+    }
+    return { kind: 'writes', writes };
+  }
+  if (code === FEATURE_CODES.WETNESS) {
+    if (!mopping || !mopping.wetness || number === null) {
+      throw new UnsupportedCommandError('The mop wetness of this robot cannot be set');
+    }
+    const wetness = within(number, { min: WETNESS_BOUNDS.MIN, max: WETNESS_BOUNDS.MAX });
+    const writes = [{ key: PROP.WETNESS_LEVEL, value: wetness }];
+    // Wetter mops are washed sooner: bring the washing frequency within the
+    // new bounds, as the app does.
+    const wash = washValueOf(props);
+    const frequency = mopping.washFrequency ? washFrequencyOf(props) : null;
+    if (mopping.washArea && wash) {
+      const limits = washLimits(mopping, wetness);
+      const bounds = frequency && frequency.value === 'by-time' ? limits.time : limits.area;
+      if (wash > bounds.max) {
+        writes.push(washValueWrite(props, bounds.max));
+      }
+    }
+    return { kind: 'writes', writes };
+  }
+  if (code === FEATURE_CODES.WASH_FREQUENCY) {
+    if (!mopping || !mopping.washFrequency) {
+      throw new UnsupportedCommandError('The mop washing frequency of this robot cannot be set');
+    }
+    const frequency = WASH_FREQUENCIES.find((candidate) => candidate.value === value);
+    if (!frequency) {
+      throw new UnsupportedCommandError(`Unknown mop washing frequency "${value}"`);
+    }
+    const limits = washLimits(mopping, toNumber(props.get(PROP.WETNESS_LEVEL)));
+    let wash = 0;
+    if (frequency.value === 'by-area') {
+      wash = within(washValues.area || limits.area.default, limits.area);
+    } else if (frequency.value === 'by-time') {
+      wash = within(washValues.time || limits.time.default, limits.time);
+    }
     return {
-      kind: 'set',
-      key: PROP.AUTO_SWITCH,
-      value: JSON.stringify({ k: ROUTE_SETTING, v: route.code }),
+      kind: 'writes',
+      writes: [settingWrite(WASH_FREQUENCY_SETTING, frequency.code), washValueWrite(props, wash)],
     };
+  }
+  if (code === FEATURE_CODES.WASH_AREA || code === FEATURE_CODES.WASH_TIME) {
+    const byArea = code === FEATURE_CODES.WASH_AREA;
+    if (!mopping || !(byArea ? mopping.washArea : mopping.washTime) || number === null) {
+      throw new UnsupportedCommandError('The mop washing frequency of this robot cannot be set');
+    }
+    const limits = washLimits(mopping, toNumber(props.get(PROP.WETNESS_LEVEL)));
+    const wash = within(number, byArea ? limits.area : limits.time);
+    const remember = byArea ? { area: wash } : { time: wash };
+    const frequency = mopping.washFrequency ? washFrequencyOf(props) : null;
+    const current = byArea
+      ? !mopping.washFrequency || (frequency && frequency.value === 'by-area')
+      : frequency && frequency.value === 'by-time';
+    // The robot holds one value, the one of its current frequency: the other
+    // is kept for when that frequency is chosen.
+    return { kind: 'writes', writes: current ? [washValueWrite(props, wash)] : [], remember };
   }
   if (code === FEATURE_CODES.LOCATE) {
     return number === 1 ? { kind: 'action', action: ACTION.LOCATE, params: [] } : null;
@@ -505,18 +828,27 @@ export function buildCommand(code, value, props, { paused = false } = {}) {
     if (!Number.isSafeInteger(room) || room <= 0) {
       throw new UnsupportedCommandError(`Unknown room "${value}"`);
     }
-    const suction = toNumber(props.get(PROP.SUCTION_LEVEL));
-    const selects = [
-      [room, ROOM_CLEAN_REPEATS, suction === null ? 1 : suction, waterLevelOf(props), 1],
-    ];
-    return {
-      kind: 'action',
-      action: ACTION.START_CUSTOM,
-      params: [
-        { piid: START_CUSTOM_PIID.STATUS, value: DREAME_STATUS.SEGMENT_CLEANING },
-        { piid: START_CUSTOM_PIID.PARAMETERS, value: JSON.stringify({ selects }) },
-      ],
-    };
+    return roomClean([room], props, true);
+  }
+  if (code.startsWith(FEATURE_CODES.ROOM_PICK_PREFIX)) {
+    const room = toNumber(code.slice(FEATURE_CODES.ROOM_PICK_PREFIX.length));
+    if (!Number.isSafeInteger(room) || room <= 0) {
+      throw new UnsupportedCommandError(`Unknown room "${code}"`);
+    }
+    return { kind: 'pick', room: String(room), on: number > 0 };
+  }
+  if (code === FEATURE_CODES.CLEAN_ROOMS) {
+    if (number !== 1) {
+      return null;
+    }
+    const chosen = rooms
+      .map((room) => toNumber(room.id))
+      .filter((room) => Number.isSafeInteger(room) && picks.has(String(room)));
+    if (chosen.length === 0) {
+      throw new UnsupportedCommandError('No room picked: switch on the rooms to clean first');
+    }
+    const fixedIndex = Boolean(mopping && (mopping.custom || mopping.gen5));
+    return roomClean(chosen, props, fixedIndex);
   }
   if (code.startsWith(FEATURE_CODES.SHORTCUT_PREFIX)) {
     if (number !== 1) {

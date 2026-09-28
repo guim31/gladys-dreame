@@ -21,6 +21,7 @@ import {
   FEATURE_CODES,
   PROP,
   ROOM_SELECTION_NONE,
+  ROUTE_SETTING,
   STATUS_PROPERTIES,
   VACUUM_CLEANER_STATE,
 } from './constants.js';
@@ -30,13 +31,14 @@ import {
   buildStates,
   gladysStateOf,
   isRoomCleaning,
-  routeOf,
+  washValuesOf,
 } from './devices/vacuum.js';
 import { AUTH_FAILURE, DreameApiError, DreameAuthError, DreameCloud } from './dreame/cloud.js';
-import { usesNewStateNumbering } from './dreame/models.js';
+import { modelCapabilities, usesNewStateNumbering } from './dreame/models.js';
+import { moppingOf } from './dreame/mopping.js';
 import { DreameMqttChannel } from './dreame/mqtt.js';
 import { fetchRooms } from './dreame/rooms.js';
-import { mergeSettings } from './dreame/settings.js';
+import { mergeSettings, parseSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
 import { MESSAGES } from './messages.js';
 import { RobotStore } from './store.js';
@@ -508,6 +510,10 @@ export class DreameIntegration {
         capabilities: null,
         rooms: [],
         shortcuts: [],
+        settingKeys: null,
+        mopping: null,
+        picks: null,
+        washValues: null,
         channel: null,
         channelCheck: null,
         published: new Map(),
@@ -530,6 +536,12 @@ export class DreameIntegration {
     robot.masterUid = record.masterUid ? String(record.masterUid) : null;
     robot.online = record.online !== false;
     robot.newNumbering = usesNewStateNumbering(robot.model, robot.firmware);
+    robot.caps = modelCapabilities(robot.model, robot.firmware);
+    const cached = this.store.get(did);
+    // What the user set in Gladys only: the rooms picked, and the washing
+    // frequency value of the frequency the robot is not set to.
+    robot.picks = robot.picks || new Set((cached && cached.picks) || []);
+    robot.washValues = robot.washValues || { ...((cached && cached.washValues) || {}) };
     return robot;
   }
 
@@ -562,10 +574,15 @@ export class DreameIntegration {
         robot.capabilities || new Set(cached ? cached.capabilities : BASE_CAPABILITIES);
     }
     if (robot.reachable) {
-      robot.hasRoute = routeOf(robot.props) !== null;
-    } else if (robot.hasRoute === undefined) {
-      robot.hasRoute = Boolean(cached && cached.hasRoute);
+      const settings = parseSettings(robot.props.get(PROP.AUTO_SWITCH));
+      robot.settingKeys = new Set(settings ? settings.keys() : []);
+    } else if (!robot.settingKeys) {
+      robot.settingKeys = new Set(
+        (cached && cached.settingKeys) || (cached && cached.hasRoute ? [ROUTE_SETTING] : []),
+      );
     }
+    robot.hasRoute = robot.settingKeys.has(ROUTE_SETTING);
+    robot.mopping = moppingOf(robot.caps, robot.capabilities, robot.settingKeys);
     if (robot.props.has(PROP.SHORTCUTS)) {
       robot.shortcuts = parseShortcuts(robot.props.get(PROP.SHORTCUTS));
     } else if (cached && robot.shortcuts.length === 0) {
@@ -598,6 +615,9 @@ export class DreameIntegration {
     if (!roomsRead && robot.rooms.length === 0 && cached) {
       robot.rooms = cached.rooms || [];
     }
+    // A room gone from the map is no longer picked.
+    const roomIds = new Set(robot.rooms.map((room) => String(room.id)));
+    robot.picks = new Set([...robot.picks].filter((room) => roomIds.has(room)));
     this.saveRobot(robot);
   }
 
@@ -607,6 +627,9 @@ export class DreameIntegration {
       rooms: robot.rooms,
       shortcuts: robot.shortcuts,
       hasRoute: Boolean(robot.hasRoute),
+      settingKeys: [...(robot.settingKeys || [])],
+      picks: [...(robot.picks || [])],
+      washValues: robot.washValues || {},
     });
   }
 
@@ -824,15 +847,40 @@ export class DreameIntegration {
     }
     const command = buildCommand(code, value, robot.props, {
       paused: gladysStateOf(robot.props, robot.newNumbering) === VACUUM_CLEANER_STATE.PAUSED,
+      mopping: robot.mopping,
+      washValues: robot.washValues,
+      rooms: robot.rooms,
+      picks: robot.picks,
     });
     if (!command) {
+      return;
+    }
+    if (command.kind === 'pick') {
+      // Kept by the integration: the robot has no such setting.
+      if (command.on) {
+        robot.picks.add(command.room);
+      } else {
+        robot.picks.delete(command.room);
+      }
+      this.saveRobot(robot);
+      await this.publishRobot(robot);
       return;
     }
     if (command.kind === 'set') {
       await this.guard(() => cloud.setProperty(robot, command.key, command.value));
       setProp(robot, command.key, command.value);
+    } else if (command.kind === 'writes') {
+      // One at a time and in order, as the app writes them.
+      for (const write of command.writes) {
+        await this.guard(() => cloud.setProperty(robot, write.key, write.value));
+        setProp(robot, write.key, write.value);
+      }
     } else {
       await this.guard(() => cloud.action(robot, command.action, command.params));
+    }
+    if (command.remember) {
+      robot.washValues = { ...robot.washValues, ...command.remember };
+      this.saveRobot(robot);
     }
     if (code === FEATURE_CODES.ROOM) {
       robot.roomCleaning = { requestedAt: Date.now(), started: false };
@@ -872,9 +920,20 @@ export class DreameIntegration {
     }
     const ids = vacuumExternalIds(this.gladys, robot.did);
     const existing = new Set((device.features || []).map((feature) => feature.external_id));
+    if (robot.mopping) {
+      const washValues = washValuesOf(robot.props, robot.mopping, robot.washValues);
+      if (JSON.stringify(washValues) !== JSON.stringify(robot.washValues)) {
+        robot.washValues = washValues;
+        this.saveRobot(robot);
+      }
+    }
     const states = buildStates(ids, robot.props, {
       newNumbering: robot.newNumbering,
       language: this.language,
+      mopping: robot.mopping,
+      washValues: robot.washValues,
+      rooms: robot.rooms,
+      picks: robot.picks,
     });
     if (existing.has(ids.feature(FEATURE_CODES.ROOM))) {
       const reset = this.roomSelectorReset(robot);

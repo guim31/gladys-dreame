@@ -3,7 +3,8 @@
 // extracted from the Home Assistant integration (src/data/models.json, see
 // tools/extract-models.py):
 //   - the AES IV its map files are encrypted with;
-//   - from which firmware it numbers its states the new way.
+//   - from which firmware it numbers its states the new way;
+//   - how it stores its mop settings (see modelCapabilities()).
 // Models are keyed by the last segment of the model id
 // (`dreame.vacuum.r2228o` -> `r2228o`).
 // -----------------------------------------------------------------------------
@@ -30,6 +31,30 @@ for (const [firmware, models] of Object.entries(TABLE.newStateFromFirmware)) {
 }
 
 const KNOWN_MODELS = new Set(TABLE.known);
+
+// flag -> model -> the firmware build it holds from.
+const FLAGS = new Map();
+for (const [flag, builds] of Object.entries(TABLE.capabilities)) {
+  const byModel = new Map();
+  for (const [build, models] of Object.entries(builds)) {
+    for (const model of models) {
+      byModel.set(model, Number(build));
+    }
+  }
+  FLAGS.set(flag, byModel);
+}
+
+// value name -> model -> value.
+const VALUES = new Map();
+for (const [name, byValue] of Object.entries(TABLE.capabilityValues)) {
+  const byModel = new Map();
+  for (const [value, models] of Object.entries(byValue)) {
+    for (const model of models) {
+      byModel.set(model, Number(value));
+    }
+  }
+  VALUES.set(name, byModel);
+}
 
 /**
  * @param {string} model a model id (`dreame.vacuum.r2228o`)
@@ -93,4 +118,35 @@ export function usesNewStateNumbering(model, firmware) {
     return false;
   }
   return (firmwareBuild(firmware) || 1) >= minimum;
+}
+
+/**
+ * What the table says of a model's mops and settings (see
+ * tools/extract-models.py for the list): the flags its firmware has, and the
+ * bounds of its mop washing frequency when they differ from the usual ones.
+ * @param {string} model a model id
+ * @param {string} [firmware] its firmware version
+ * @returns {{ flags: Set<string>, values: object }|null} null for a model
+ *   unknown to the table: nothing can be assumed about it
+ */
+export function modelCapabilities(model, firmware) {
+  const key = modelKey(model);
+  if (!KNOWN_MODELS.has(key)) {
+    return null;
+  }
+  const build = firmwareBuild(firmware) || 1;
+  const flags = new Set();
+  for (const [flag, byModel] of FLAGS) {
+    const minimum = byModel.get(key);
+    if (minimum !== undefined && build >= minimum) {
+      flags.add(flag);
+    }
+  }
+  const values = {};
+  for (const [name, byModel] of VALUES) {
+    if (byModel.has(key)) {
+      values[name] = byModel.get(key);
+    }
+  }
+  return { flags, values };
 }

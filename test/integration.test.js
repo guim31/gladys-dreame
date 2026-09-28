@@ -71,11 +71,18 @@ test('a linked account, from discovery to commands', async (t) => {
         'run-mode',
         'dock',
         'pause',
+        'cleaning-mode',
         'suction',
+        'mop-wash-area',
         'route',
         'battery',
         'error',
         'room',
+        'room-pick-3',
+        'room-pick-4',
+        'room-pick-2',
+        'room-pick-1',
+        'clean-rooms',
         'shortcut-32',
         'shortcut-33',
         'locate',
@@ -177,6 +184,36 @@ test('a linked account, from discovery to commands', async (t) => {
       { piid: 1, value: 25 },
       { piid: 10, value: '33' },
     ]);
+  });
+
+  await t.test('the mop settings, and several rooms cleaned at once', async () => {
+    const device = gladys.devices[0];
+    await dreame.setValue(device, { external_id: ids.feature('cleaning-mode') }, 'sweeping');
+    // the mode bits only, then the deep route a sweeping robot cannot take
+    assert.deepEqual(
+      fake.state.commands.slice(-2).map((command) => command.params[0].piid),
+      [23, 50],
+    );
+    assert.equal(fake.state.commands.at(-2).params[0].value, (3 << 16) | (20 << 8) | 2);
+    assert.equal(fake.state.commands.at(-1).params[0].value, '{"k":"CleanRoute","v":1}');
+    assert.equal(statesOf('cleaning-mode').at(-1).text, 'sweeping');
+    assert.equal(statesOf('route').at(-1).text, 'standard');
+
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 1);
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-1') }, 1);
+    assert.equal(statesOf('room-pick-4').at(-1).state, 1);
+    // kept across restarts
+    assert.deepEqual(dreame.store.get(ROBOT.did).picks.sort(), ['1', '4']);
+    await dreame.setValue(device, { external_id: ids.feature('clean-rooms') }, 1);
+    const clean = fake.state.commands.at(-1).params.in;
+    assert.equal(clean[0].value, 18);
+    // in the order of the map, not of the clicks
+    assert.deepEqual(
+      JSON.parse(clean[1].value).selects.map((entry) => entry[0]),
+      [1, 4],
+    );
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-1') }, 0);
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 0);
   });
 
   await t.test('the pause button pauses, then resumes', async () => {

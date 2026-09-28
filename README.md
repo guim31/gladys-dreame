@@ -33,20 +33,27 @@ documentation: [`docs/fr.md`](docs/fr.md), [`docs/en.md`](docs/en.md).
 
 Each robot exposes:
 
-| Feature           | Category / type                  | Dreame (MIoT)                                        |
-| ----------------- | -------------------------------- | ---------------------------------------------------- |
-| State             | `vacuum-cleaner` / `state`       | 2.1, with 2.2, 3.2, 4.1, 4.7, 4.17 (see below)       |
-| Cleaning          | `vacuum-cleaner` / `run-mode`    | Clean → start/resume (action 2.1), Idle → stop (4.2) |
-| Return to dock    | `vacuum-cleaner` / `dock`        | action 3.1                                           |
-| Pause / resume    | `button` / `push`                | action 2.2, or 2.1 when the task is paused           |
-| Suction power     | `text` / `select`                | 4.4: quiet 0, standard 1, strong 2, turbo 3          |
-| Floor washing     | `text` / `select`                | `CleanRoute` in the settings list 4.50 (one key set) |
-| Battery           | `battery` / `integer`            | 3.1                                                  |
-| Error             | `text` / `text`                  | 2.2, described in the configured language            |
-| Room to clean     | `text` / `select`                | segment clean: action 4.1, kind 18                   |
-| Shortcut - _name_ | `button` / `push`                | shortcut: action 4.1, kind 25 (list in 4.48)         |
-| Locate the robot  | `button` / `push`                | action 7.1                                           |
-| _Consumable_      | `maintenance` / `life-remaining` | the percent left of each part (9.2, 10.2, 11.1…)     |
+| Feature                        | Category / type                  | Dreame (MIoT)                                        |
+| ------------------------------ | -------------------------------- | ---------------------------------------------------- |
+| State                          | `vacuum-cleaner` / `state`       | 2.1, with 2.2, 3.2, 4.1, 4.7, 4.17 (see below)       |
+| Cleaning                       | `vacuum-cleaner` / `run-mode`    | Clean → start/resume (action 2.1), Idle → stop (4.2) |
+| Return to dock                 | `vacuum-cleaner` / `dock`        | action 3.1                                           |
+| Pause / resume                 | `button` / `push`                | action 2.2, or 2.1 when the task is paused           |
+| Cleaning mode                  | `text` / `select`                | 4.23 mode bits, 4.26 for "customize room cleaning"   |
+| Suction power                  | `text` / `select`                | 4.4: quiet 0, standard 1, strong 2, turbo 3          |
+| Max suction power              | `switch` / `binary`              | `SuctionMax` in the settings list 4.50               |
+| Mop wetness                    | `switch` / `dimmer` (1-32)       | 28.1                                                 |
+| Mop washing freq.              | `text` / `select`                | `BackWashType` in 4.50: by area 1, time 2, room 3    |
+| Mop washing: every (m²), (min) | `switch` / `dimmer`              | 4.23 byte 1, for the frequency it belongs to         |
+| Cleaning route                 | `text` / `select`                | `CleanRoute` in the settings list 4.50 (one key set) |
+| Battery                        | `battery` / `integer`            | 3.1                                                  |
+| Error                          | `text` / `text`                  | 2.2, described in the configured language            |
+| Room to clean                  | `text` / `select`                | segment clean: action 4.1, kind 18                   |
+| Selection - _room_             | `switch` / `binary`              | kept by the integration (`/data/robots.json`)        |
+| Clean the selection            | `button` / `push`                | segment clean of the rooms switched on               |
+| Shortcut - _name_              | `button` / `push`                | shortcut: action 4.1, kind 25 (list in 4.48)         |
+| Locate the robot               | `button` / `push`                | action 7.1                                           |
+| _Consumable_                   | `maintenance` / `life-remaining` | the percent left of each part (9.2, 10.2, 11.1…)     |
 
 ### The state
 
@@ -70,12 +77,25 @@ the integration cannot change, and the first tester could not tell which of
 them did what. The clean mode stays understood as a command (Quiet, Auto, Deep
 Clean, Vacuum → the four levels) for the devices created before.
 
-**Mopping mode and water flow are deliberately not writable yet.** On the robots
-with a self-washing station, property 4.23 packs the cleaning mode, the mop
-washing frequency and the mop humidity into one integer, with a bit layout that
-depends on capabilities of the model (mop pad lifting…). Writing it wrong would
-change the user's settings. The diagnostic reports its raw value, so it can be
-added once validated on real robots; meanwhile an app shortcut covers the need.
+### Mop settings
+
+On the robots with a self-washing station, property 4.23 packs three settings:
+the cleaning mode (byte 0), the mop washing frequency value (byte 1: square
+metres by area, minutes by time, 0 by room) and the water level (byte 2, 0 on the
+robots with a wetness level, 28.1, instead). A write changes one byte and keeps
+the others. The robots whose mops lift number their modes their own way (2 is
+vacuum, 0 vacuum and mop, 1 mop, 3 mop after vacuum), so the cleaning mode is only
+offered when the model table says the mops lift — it also gives the flags for the
+wetness level, the washing frequency, the max suction and "mop after vacuum", and
+the bounds of the washing values. Checked against the first tester's r2449a: 3841
+with the app on "mop, wash every 15 m²", 3842 on "vacuum".
+
+The two washing sliders share byte 1: each writes it when the robot washes by its
+frequency, and is otherwise kept by the integration, for when that frequency is
+chosen (as the app does). Wetter mops (above 26) are washed every 20 m² or 20
+minutes at most: a wetness change brings the washing value within those bounds.
+Choosing a mode that vacuums brings a route the vacuum cannot take (intensive,
+deep) back to standard; choosing a suction level ends the max suction boost.
 
 ### Rooms
 
@@ -87,6 +107,13 @@ are named as the app names them: by type when they have one ("Kitchen",
 "Primary bedroom 2"), else by the name the user gave. The selector goes back to
 "—" when the room clean is over, when it never started (2 minutes), and once after
 a restart. Rooms and shortcuts are re-read every 6 hours, and at every scan.
+
+Several rooms at once: each room has a **Selection** switch, kept by the
+integration (the robot has no such setting, and it survives restarts), and the
+**Clean the selection** button starts a segment clean of the rooms switched on, in
+the order of the map. Each entry carries 1 as its index on the robots with
+room-by-room settings and on the fifth generation (another index stops them), its
+position otherwise.
 
 ## Configuration
 

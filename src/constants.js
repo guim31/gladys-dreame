@@ -119,13 +119,19 @@ export const PROP = {
   WATER_TANK: '4.6',
   TASK_STATUS: '4.7',
   CLEANING_PAUSED: '4.17',
+  // On the robots with a self-washing base, a grouped value: the cleaning
+  // mode, the mop washing frequency and the water level (see dreame/mopping.js).
   CLEANING_MODE: '4.23',
   SELF_WASH_BASE_STATUS: '4.25',
+  // The app's "customize room cleaning": each room its own settings.
+  CUSTOMIZED_CLEANING: '4.26',
   SHORTCUTS: '4.48',
   // The app's switchable settings, a JSON list of { k, v }; a push may carry a
   // single { k, v } object, and a write sets one key.
   AUTO_SWITCH: '4.50',
   MAP_LIST: '6.8',
+  // The mop wetness of the recent robots, 1 (slightly dry) to 32 (wet).
+  WETNESS_LEVEL: '28.1',
 };
 
 // Consumables, as the remaining life in percent. The robot reports a pair per
@@ -168,7 +174,9 @@ export const STATUS_PROPERTIES = [
   PROP.CLEANING_PAUSED,
   PROP.CLEANING_MODE,
   PROP.SELF_WASH_BASE_STATUS,
+  PROP.CUSTOMIZED_CLEANING,
   PROP.AUTO_SWITCH,
+  PROP.WETNESS_LEVEL,
 ];
 export const DISCOVERY_PROPERTIES = [
   ...STATUS_PROPERTIES,
@@ -387,6 +395,14 @@ export const FEATURE_CODES = {
   ROOM: 'room',
   ROUTE: 'route',
   SUCTION: 'suction',
+  MAX_SUCTION: 'max-suction',
+  CLEANING_MODE: 'cleaning-mode',
+  WETNESS: 'wetness',
+  WASH_FREQUENCY: 'mop-wash-frequency',
+  WASH_AREA: 'mop-wash-area',
+  WASH_TIME: 'mop-wash-time',
+  ROOM_PICK_PREFIX: 'room-pick-',
+  CLEAN_ROOMS: 'clean-rooms',
   SHORTCUT_PREFIX: 'shortcut-',
   CONSUMABLE_PREFIX: 'consumable-',
 };
@@ -423,3 +439,30 @@ export const SUCTION_LEVELS = [
   { value: 'strong', code: 2 },
   { value: 'turbo', code: 3 },
 ];
+
+// --- Mop settings, as the app lists them ---------------------------------------------
+// The cleaning mode, in the app's order. `code` is the mode as the Home
+// Assistant integration numbers it; how a robot stores it depends on its
+// generation (see dreame/mopping.js). `custom` is the app's "customize room
+// cleaning" (4.26): each room is cleaned with its own settings.
+export const CLEANING_MODES = [
+  { value: 'sweeping', code: 0 },
+  { value: 'mopping', code: 1 },
+  { value: 'sweeping-and-mopping', code: 2 },
+  { value: 'mopping-after-sweeping', code: 3 },
+  { value: 'custom', code: null },
+];
+
+// When the robot goes back to its base to wash its mops (setting
+// `BackWashType`): after an area, after a time, or after each room.
+export const WASH_FREQUENCY_SETTING = 'BackWashType';
+export const WASH_FREQUENCIES = [
+  { value: 'by-area', code: 1 },
+  { value: 'by-time', code: 2 },
+  { value: 'by-room', code: 3 },
+];
+
+// "Max suction power" of the app: a boost for the next clean only.
+export const MAX_SUCTION_SETTING = 'SuctionMax';
+
+export const WETNESS_BOUNDS = { MIN: 1, MAX: 32 };

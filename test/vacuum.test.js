@@ -260,9 +260,8 @@ test('the suction is a select of the four levels of the app, in its order', () =
     'strong',
   );
   assert.deepEqual(buildCommand('suction', 'quiet', props([])), {
-    kind: 'set',
-    key: '4.4',
-    value: 0,
+    kind: 'writes',
+    writes: [{ key: '4.4', value: 0 }],
   });
 });
 
@@ -372,7 +371,7 @@ test('every feature is valid for Gladys, NOT NULL columns included', () => {
     assert.equal(feature.selector, undefined);
   }
   const codes = features.map((feature) => feature.external_id.split(':').pop());
-  assert.deepEqual(codes.slice(0, 10), [
+  assert.deepEqual(codes.slice(0, 13), [
     'state',
     'run-mode',
     'dock',
@@ -381,6 +380,9 @@ test('every feature is valid for Gladys, NOT NULL columns included', () => {
     'battery',
     'error',
     'room',
+    'room-pick-3',
+    'room-pick-1',
+    'clean-rooms',
     'shortcut-32',
     'locate',
   ]);
@@ -511,9 +513,8 @@ test('the cleaning route is read from the settings and written one key at a time
   });
   assert.deepEqual(states, [{ device_feature_external_id: ids.feature('route'), text: 'quick' }]);
   assert.deepEqual(buildCommand('route', 'intensive', props([])), {
-    kind: 'set',
-    key: '4.50',
-    value: '{"k":"CleanRoute","v":2}',
+    kind: 'writes',
+    writes: [{ key: '4.50', value: '{"k":"CleanRoute","v":2}' }],
   });
   assert.throws(() => buildCommand('route', 'turbo', props([])), UnsupportedCommandError);
   const route = buildVacuumFeatures(ids, { capabilities: new Set(), hasRoute: true }, 'fr').find(

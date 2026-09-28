@@ -16,18 +16,35 @@ Pour chaque robot de votre compte :
 
 - **État** — nettoyage, en pause, retour à la base, en charge, sur la base, erreur.
 - **Nettoyage** — démarrer un nettoyage complet (ou reprendre celui qui est en
-  pause) et l'arrêter.
+  pause) et l'arrêter. Le robot nettoie toute la maison selon le **Mode de
+  nettoyage** et les réglages en cours.
 - **Retour à la base**, **Pause / reprise** (un second appui relance le robot) et
   **Localiser le robot** (il se signale par un son).
-- **Puissance d'aspiration** — _Silencieux_, _Standard_, _Intense_ ou _Max_, comme
-  dans l'application.
-- **Lavage du sol** — l'itinéraire de l'application : _Rapide_, _Standard_, _Intensif_
-  ou _En profondeur_, sur les robots qui ont ce réglage (en aspiration seule, seuls
-  _Rapide_ et _Standard_ sont acceptés).
+- **Mode de nettoyage** — _Aspiration_, _Lavage du sol_, _Aspiration et lavage du
+  sol_, _Lavage du sol après aspiration_ ou _Personnaliser le nettoyage des pièces_
+  (chaque pièce garde les réglages choisis pour elle dans l'application), comme
+  dans l'application. Proposé sur les robots dont les serpillières se relèvent.
+- **Puissance d'aspiration** — _Silencieux_, _Standard_, _Intense_ ou _Max_, et
+  **Puissance d'aspiration maximale** (valable pour le prochain nettoyage
+  seulement, comme dans l'application).
+- **Humidité de la serpillière** — de 1 (légèrement sèche) à 32 (mouillée).
+- **Fréquence de lavage de la serpillière** — _Par zone_, _Par heure_ ou _Par
+  pièce_, avec deux curseurs : la surface (en m²) entre deux lavages _par zone_, et
+  la durée (en minutes) _par heure_. Chaque curseur agit quand sa fréquence est
+  choisie ; sinon sa valeur est gardée pour le jour où elle le sera. Plus la
+  serpillière est humide, plus les lavages sont rapprochés : au-delà de 26
+  d'humidité, pas plus de 20 m² ou 20 minutes entre deux lavages.
+- **Itinéraire** — _Rapide_, _Standard_, _Intensif_ ou _En profondeur_, sur les
+  robots qui ont ce réglage. Dans un mode avec aspiration, seuls _Rapide_ et
+  _Standard_ existent : passer en aspiration ramène un itinéraire _Intensif_ ou
+  _En profondeur_ sur _Standard_, comme l'application.
 - **Batterie**, et **Erreur** : le message du robot en clair (« Brosse principale
   bloquée », « Réservoir d'eau propre vide »…), « Aucune erreur » sinon.
 - **Pièce à nettoyer** — les pièces de la carte de votre robot ; en choisir une
   lance son nettoyage, et la liste revient sur « — » une fois la pièce terminée.
+- **Plusieurs pièces** — un interrupteur **Sélection** par pièce, et le bouton
+  **Nettoyer la sélection** qui lance le nettoyage des pièces allumées, dans
+  l'ordre de la carte. La sélection est conservée d'un nettoyage à l'autre.
 - **Raccourcis** — un bouton par raccourci créé dans l'application Dreamehome. Il
   conserve tous ses réglages : pièces, ordre, aspiration, débit d'eau, nombre de
   passages, serpillière.
@@ -37,10 +54,14 @@ Pour chaque robot de votre compte :
 
 Seules les fonctionnalités que votre robot possède réellement sont proposées.
 
+Les réglages s'appliquent au prochain nettoyage, lancé depuis Gladys ou
+l'application, sauf quand **CleanGenius** est activé dans l'application : le robot
+choisit alors lui-même.
+
 > Sur le tableau de bord, Gladys affiche le nom générique d'une fonctionnalité quand
 > elle est seule de son type : **Mode de fonctionnement** est le nettoyage
-> (_Nettoyer_ / _Repos_) et **Texte** le message d'erreur. Vous pouvez renommer ces
-> lignes dans la boîte du tableau de bord.
+> (_Nettoyer_ / _Repos_ ; _Cartographier_ n'est pas pris en charge) et **Texte** le
+> message d'erreur. Vous pouvez renommer ces lignes dans la boîte du tableau de bord.
 
 ## Configuration
 
@@ -62,12 +83,20 @@ Le paramètre **Langue des noms** choisit la langue des noms de fonctionnalités
 pièces et des messages d'erreur. Les noms de fonctionnalités sont fixés à la
 création de l'appareil.
 
+Quand une mise à jour de l'intégration ajoute des fonctionnalités, ou que vous
+créez un raccourci ou une pièce dans l'application, l'onglet **Découverte**
+propose de **mettre à jour** l'appareil (les pièces et raccourcis sont relus toutes
+les 6 heures, ou tout de suite avec **Rechercher**).
+
 ## Dans les scènes
 
 - Déclencheur sur l'**état** : par exemple, être prévenu quand le robot passe
   « Erreur », puis lire le message de la fonctionnalité **Erreur**.
 - Action « Contrôler un appareil » : **Nettoyage** sur _Nettoyer_ pour lancer le
   robot, **Pièce à nettoyer** sur une pièce, ou un bouton de **Raccourci**.
+- Plusieurs pièces : allumer leurs interrupteurs **Sélection**, puis appuyer sur
+  **Nettoyer la sélection**. Le mode et les réglages se posent de la même façon,
+  avant de lancer le nettoyage.
 
 ## Signaler un problème
 
@@ -78,9 +107,10 @@ nom de pièce.
 
 ## Limites
 
-- Le choix entre aspiration seule et lavage, et le débit d'eau, ne se règlent pas
-  encore depuis Gladys : leur codage varie selon les modèles, et une écriture
-  erronée modifierait vos réglages. Un raccourci de l'application couvre ce besoin.
+- Le mode de nettoyage et les réglages de serpillière ne sont proposés qu'aux
+  modèles dont l'intégration connaît le codage (celui de la table de modèles de
+  l'intégration Home Assistant) : une écriture erronée modifierait vos réglages.
+  Un raccourci de l'application couvre les autres cas.
 - La cartographie se lance depuis l'application Dreamehome, pas depuis Gladys.
 - Les robots des applications MOVAhome et Trouver ne sont pas pris en charge.
 - Cette intégration a été écrite sans robot sous la main, à partir du protocole de

@@ -14,7 +14,13 @@ import { readFileSync } from 'node:fs';
 
 import { DISCOVERY_PROPERTIES, PROP } from './constants.js';
 import { gladysStateOf } from './devices/vacuum.js';
-import { isKnownModel, mapIvFor, usesNewStateNumbering } from './dreame/models.js';
+import {
+  isKnownModel,
+  mapIvFor,
+  modelCapabilities,
+  usesNewStateNumbering,
+} from './dreame/models.js';
+import { cleaningModeOf, moppingOf, splitGroup } from './dreame/mopping.js';
 import { fetchRooms } from './dreame/rooms.js';
 import { parseSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
@@ -120,6 +126,24 @@ async function diagnoseRobot(integration, record, index) {
     }`,
   );
   lines.push(`  Gladys state computed: ${gladysStateOf(props, newNumbering)}`);
+  const caps = modelCapabilities(record.model, firmware);
+  lines.push(
+    `  Model capabilities: ${caps ? [...caps.flags].sort().join(' ') || 'none' : 'unknown'}`,
+  );
+  const mopping = moppingOf(caps, new Set(props.keys()), new Set(settings ? settings.keys() : []));
+  const offered = [
+    'cleaningMode',
+    'custom',
+    'wetness',
+    'washFrequency',
+    'washArea',
+    'washTime',
+  ].filter((name) => mopping[name]);
+  const group = mopping.grouped ? splitGroup(props.get(PROP.CLEANING_MODE)) : null;
+  lines.push(
+    `  Mop settings: ${offered.join(' ') || 'none'}; cleaning mode ${cleaningModeOf(props, mopping) || '-'}` +
+      (group ? ` (4.23 mode ${group.mode}, wash ${group.wash}, water ${group.water})` : ''),
+  );
   lines.push(
     `  Shortcuts: ${props.has(PROP.SHORTCUTS) ? parseShortcuts(props.get(PROP.SHORTCUTS)).length : 'property absent'}`,
   );
