@@ -1,17 +1,21 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "categories": ["appliances"],
+  "categories": [
+    "appliances"
+  ],
   "name": "Dreame",
   "description": {
     "en": "Dreamehome robot vacuums: cleaning, suction and mop settings, rooms, shortcuts, consumables.",
     "fr": "Aspirateurs robots Dreamehome : nettoyage, aspiration, serpillière, pièces, raccourcis."
   },
-  "version": "0.2.4",
-  "docker_image": "ghcr.io/guim31/gladys-dreame:0.2.4",
+  "version": "0.3.0",
+  "docker_image": "ghcr.io/guim31/gladys-dreame:0.3.0",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-dreame/main/cover.jpg",
-  "transports": ["cloud"],
+  "transports": [
+    "cloud"
+  ],
   "config_schema": [
     {
       "key": "dreame_account",
