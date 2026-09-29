@@ -10,7 +10,10 @@
 //     published when it changes, and only for the robots created in Gladys;
 //   - commands, and a quick refresh after each of them;
 //   - the transport badge: cloud, degraded when the real-time channel is down,
-//     unreachable when the robot does not answer.
+//     unreachable when the robot does not answer;
+//   - the dashboard widgets: their content (widgets.js), their buttons, the map
+//     image, re-read while a dashboard shows it (never otherwise), and a nudge
+//     to Gladys when what they show changes.
 // -----------------------------------------------------------------------------
 
 import * as mqttLibrary from 'mqtt';
@@ -37,10 +40,22 @@ import { AUTH_FAILURE, DreameApiError, DreameAuthError, DreameCloud } from './dr
 import { modelCapabilities, usesNewStateNumbering } from './dreame/models.js';
 import { moppingOf } from './dreame/mopping.js';
 import { DreameMqttChannel } from './dreame/mqtt.js';
-import { fetchRooms } from './dreame/rooms.js';
+import { renderMap } from './dreame/render.js';
+import { fetchMap } from './dreame/rooms.js';
 import { mergeSettings, parseSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
+import { namedRooms } from './dreame/map.js';
+import { texts } from './i18n.js';
 import { MESSAGES } from './messages.js';
+import {
+  ACTIONS,
+  WIDGET,
+  maintenanceContent,
+  messageContent,
+  quickContent,
+  robotContent,
+  widgetLanguage,
+} from './widgets.js';
 import { RobotStore } from './store.js';
 import {
   clearedSessionConfig,
@@ -75,7 +90,18 @@ export const TIMINGS = {
   ROOM_START_GRACE_MS: 2 * 60 * 1000,
   // How long the real-time channel may take to come up before the badge says so.
   CHANNEL_GRACE_MS: 2 * 60 * 1000,
+  // The map of the robot widget is re-read when a dashboard asks for it and it
+  // is older than this: often while the robot moves, rarely otherwise.
+  MAP_MAX_AGE_ACTIVE_MS: 50 * 1000,
+  MAP_MAX_AGE_IDLE_MS: 30 * 60 * 1000,
+  // Gladys takes one widget nudge per 10 s: the last change of a burst is sent
+  // at the end of the window instead of being dropped.
+  WIDGET_NUDGE_MS: 10 * 1000,
 };
+
+// Map images kept for the dashboards (a few per robot: the current one, and
+// the ones still in a dashboard's cache).
+const MAX_IMAGES = 20;
 
 const DEGRADED_MESSAGE = {
   en: 'Real-time updates unavailable: the robot is refreshed every minute.',
@@ -155,6 +181,8 @@ export class DreameIntegration {
     this.retryDelay = null;
     this.persistedSession = null;
     this.status = { connected: false, message: undefined };
+    this.images = new Map();
+    this.nudges = new Map();
   }
 
   // --- Lifecycle -------------------------------------------------------------
@@ -200,6 +228,10 @@ export class DreameIntegration {
 
   /** Stop the channels and timers (shutdown, unlink, refused session). */
   stopAll() {
+    for (const nudge of this.nudges.values()) {
+      clearTimeout(nudge.timer);
+    }
+    this.nudges.clear();
     clearInterval(this.rediscoveryTimer);
     clearTimeout(this.retryTimer);
     this.rediscoveryTimer = null;
@@ -514,6 +546,10 @@ export class DreameIntegration {
         mopping: null,
         picks: null,
         washValues: null,
+        map: null,
+        mapImage: undefined,
+        mapTriedAt: 0,
+        mapFetching: null,
         channel: null,
         channelCheck: null,
         published: new Map(),
@@ -592,12 +628,15 @@ export class DreameIntegration {
     if (robot.reachable) {
       const trace = [];
       try {
-        robot.rooms = await this.guard(() =>
-          fetchRooms(this.cloud, robot, {
+        robot.mapTriedAt = Date.now();
+        const map = await this.guard(() =>
+          fetchMap(this.cloud, robot, {
             waitForPush: (ms) => this.waitForMapLocation(robot, ms),
             trace,
           }),
         );
+        robot.rooms = map.rooms;
+        this.keepMap(robot, map);
         roomsRead = true;
         this.logger.info(`Rooms of "${robot.name}": ${trace.join(' | ')}`);
       } catch (err) {
@@ -834,8 +873,18 @@ export class DreameIntegration {
    */
   async setValue(device, feature, value) {
     const robot = this.robotOf(device);
-    const cloud = this.requireCloud();
     const code = String(feature.external_id).split(':').pop();
+    await this.runCommand(robot, code, value);
+  }
+
+  /**
+   * Send what a feature value stands for (from Gladys or a widget button).
+   * @param {object} robot the robot
+   * @param {string} code the feature code
+   * @param {*} value the value
+   */
+  async runCommand(robot, code, value) {
+    const cloud = this.requireCloud();
     if (code === FEATURE_CODES.ROOM) {
       // Gladys stored the selection itself (no feedback): what was last
       // published no longer tells what the selector shows.
@@ -954,6 +1003,239 @@ export class DreameIntegration {
     await this.gladys.publishStates(changed);
     for (const state of changed) {
       robot.published.set(state.device_feature_external_id, signature(state));
+    }
+    this.nudgeWidgets(changed.map((state) => state.device_feature_external_id));
+  }
+
+  // --- Dashboard widgets -------------------------------------------------------
+
+  /**
+   * The robot a widget shows: the one picked in its settings, else the first.
+   * @param {object} [settings] the widget settings (`robot`: a device external id)
+   * @returns {object|null} the robot
+   */
+  widgetRobot(settings) {
+    const did = settings && settings.robot ? didOf(this.gladys, settings.robot) : null;
+    const known = [...this.robots.values()].filter((robot) => robot.capabilities);
+    return (did && known.find((robot) => robot.did === did)) || known[0] || null;
+  }
+
+  viewOf(robot) {
+    const device = this.createdDevice(robot);
+    const image = this.mapImageOf(robot);
+    return {
+      did: robot.did,
+      name: (device && device.name) || robot.name,
+      props: robot.props,
+      newNumbering: robot.newNumbering,
+      mopping: robot.mopping,
+      ids: vacuumExternalIds(this.gladys, robot.did),
+      features: device
+        ? new Set((device.features || []).map((feature) => feature.external_id))
+        : null,
+      mapKey: image ? image.key : null,
+      rooms: robot.rooms,
+      shortcuts: robot.shortcuts,
+      picks: robot.picks,
+    };
+  }
+
+  /**
+   * The content of a widget.
+   * @param {string} key the widget key
+   * @param {object} request `{ settings, language }` from Gladys
+   * @returns {object} the content
+   */
+  widgetContent(key, { settings, language } = {}) {
+    const lang = widgetLanguage(language);
+    const robot = this.widgetRobot(settings);
+    if (!robot) {
+      return messageContent(texts(lang).widget.noRobot);
+    }
+    if (key === WIDGET.ROBOT) {
+      this.ensureFreshMap(robot);
+      return robotContent(this.viewOf(robot), lang);
+    }
+    if (key === WIDGET.QUICK_CLEAN) {
+      return quickContent(this.viewOf(robot), settings || {}, lang);
+    }
+    if (key === WIDGET.MAINTENANCE) {
+      return maintenanceContent(this.viewOf(robot), lang);
+    }
+    throw new Error(`Unknown widget: ${key}`);
+  }
+
+  /**
+   * A widget button was pressed.
+   * @param {string} actionKey the action (ACTIONS)
+   * @param {object} params what the content declared with it (`did`, `id`, `room`)
+   * @returns {Promise<object>} the message shown, in both languages
+   */
+  async widgetAction(actionKey, params = {}) {
+    const spec = ACTIONS[actionKey];
+    const robot = this.robots.get(String(params.did));
+    if (!spec || !robot || !robot.capabilities) {
+      throw new Error(`Unknown widget action: ${actionKey}`);
+    }
+    let { code, value } = spec;
+    if (actionKey === 'shortcut') {
+      code = `${FEATURE_CODES.SHORTCUT_PREFIX}${Number(params.id)}`;
+    } else if (actionKey === 'clean_room') {
+      value = String(params.room);
+    }
+    await this.runCommand(robot, code, value);
+    const message = (language) => {
+      const done = texts(language).widget.done;
+      if (actionKey === 'shortcut') {
+        const shortcut = robot.shortcuts.find((item) => String(item.id) === String(params.id));
+        return done.shortcut(shortcut ? shortcut.name : params.id);
+      }
+      if (actionKey === 'clean_room') {
+        const room = namedRooms(robot.rooms, language).find(
+          (item) => String(item.id) === String(params.room),
+        );
+        return done.room(room ? room.name : params.room);
+      }
+      return done[actionKey === 'clean_selection' ? 'selection' : actionKey];
+    };
+    return { en: message('en'), fr: message('fr') };
+  }
+
+  /**
+   * The bytes of a widget image.
+   * @param {string} key the image key
+   * @returns {string} the image, raw base64
+   */
+  widgetImage(key) {
+    const image = this.images.get(key);
+    if (!image) {
+      throw new Error(`Unknown image: ${key}`);
+    }
+    return image;
+  }
+
+  keepMap(robot, map) {
+    robot.map = { frame: map.frame, saved: map.saved };
+    // Drawn when a widget asks for it.
+    robot.mapImage = undefined;
+  }
+
+  /**
+   * The map of a robot as an image, drawn once per map read.
+   * @param {object} robot the robot
+   * @returns {{ key: string }|null} the image, null when there is none
+   */
+  mapImageOf(robot) {
+    if (!robot.map) {
+      return null;
+    }
+    if (robot.mapImage === undefined) {
+      robot.mapImage = null;
+      try {
+        const image = renderMap(robot.map, {
+          mapV2: Boolean(robot.caps && robot.caps.flags.has('mapV2')),
+        });
+        if (image) {
+          robot.mapImage = { key: image.key };
+          this.images.delete(image.key);
+          this.images.set(image.key, image.png.toString('base64'));
+          while (this.images.size > MAX_IMAGES) {
+            this.images.delete(this.images.keys().next().value);
+          }
+        }
+      } catch (err) {
+        this.logger.warn(`Could not draw the map of "${robot.name}": ${err.message}`);
+      }
+    }
+    return robot.mapImage;
+  }
+
+  /**
+   * Re-read the map of a robot in the background when a dashboard shows it
+   * and it is getting old; the widget is nudged when the image changed.
+   * @param {object} robot the robot
+   */
+  ensureFreshMap(robot) {
+    const state = gladysStateOf(robot.props, robot.newNumbering);
+    const moving =
+      state === VACUUM_CLEANER_STATE.RUNNING || state === VACUUM_CLEANER_STATE.RETURNING_TO_DOCK;
+    const maxAge = moving ? this.timings.MAP_MAX_AGE_ACTIVE_MS : this.timings.MAP_MAX_AGE_IDLE_MS;
+    if (
+      robot.mapFetching ||
+      robot.reachable === false ||
+      !this.cloud ||
+      this.authFailure ||
+      Date.now() - robot.mapTriedAt < maxAge
+    ) {
+      return;
+    }
+    robot.mapTriedAt = Date.now();
+    const before = robot.mapImage ? robot.mapImage.key : null;
+    robot.mapFetching = this.guard(() =>
+      fetchMap(this.cloud, robot, { waitForPush: (ms) => this.waitForMapLocation(robot, ms) }),
+    )
+      .then((map) => {
+        this.keepMap(robot, map);
+        const image = this.mapImageOf(robot);
+        if (image && image.key !== before) {
+          this.nudge(WIDGET.ROBOT);
+        }
+      })
+      .catch((err) =>
+        this.logger.debug(`Could not re-read the map of "${robot.name}": ${err.message}`),
+      )
+      .finally(() => {
+        robot.mapFetching = null;
+      });
+  }
+
+  /**
+   * States were published: nudge the widgets that show them.
+   * @param {Array<string>} externalIds the features whose state changed
+   */
+  nudgeWidgets(externalIds) {
+    const prefix = `:${FEATURE_CODES.CONSUMABLE_PREFIX}`;
+    const wear = externalIds.some((id) => id.includes(prefix));
+    const other = externalIds.some((id) => !id.includes(prefix));
+    if (other) {
+      this.nudge(WIDGET.ROBOT);
+      this.nudge(WIDGET.QUICK_CLEAN);
+    }
+    if (wear) {
+      this.nudge(WIDGET.MAINTENANCE);
+      this.nudge(WIDGET.ROBOT);
+    }
+  }
+
+  /**
+   * Ask Gladys to re-pull a widget: at once, or at the end of the current
+   * window when one was just sent (Gladys drops the nudges in between).
+   * @param {string} key the widget key
+   */
+  nudge(key) {
+    if (typeof this.gladys.requestWidgetRefresh !== 'function') {
+      return;
+    }
+    const entry = this.nudges.get(key) || { last: 0, timer: null };
+    this.nudges.set(key, entry);
+    if (entry.timer) {
+      return;
+    }
+    const send = () => {
+      entry.timer = null;
+      entry.last = Date.now();
+      try {
+        this.gladys.requestWidgetRefresh(key);
+      } catch (err) {
+        this.logger.debug(`Widget nudge failed: ${err.message}`);
+      }
+    };
+    const wait = entry.last + this.timings.WIDGET_NUDGE_MS - Date.now();
+    if (wait <= 0) {
+      send();
+    } else {
+      entry.timer = setTimeout(send, wait);
+      entry.timer.unref?.();
     }
   }
 

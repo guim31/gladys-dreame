@@ -12,6 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { DEFAULT_REGION, DREAME_REGIONS } from '../src/constants.js';
 import { DEFAULT_LANGUAGE, LANGUAGES } from '../src/i18n.js';
 import { CONFIG_KEYS } from '../src/session.js';
+import { QUICK_BUTTON_SETTINGS, WIDGET } from '../src/widgets.js';
 
 const read = async (path) => readFile(new URL(path, import.meta.url), 'utf8');
 const manifest = JSON.parse(await read('../gladys-assistant-integration.json'));
@@ -120,4 +121,43 @@ test('every multi-language text has English and French', () => {
   for (const text of texts) {
     assert.ok(text.en && text.fr, JSON.stringify(text));
   }
+});
+
+test('the widgets: declared as the code serves them, within the store limits', () => {
+  // Widgets need Gladys 5.1.
+  const [, major, minor] = manifest.gladys_version.match(/>=\s*(\d+)\.(\d+)\.\d+/).map(Number);
+  assert.ok(major > 5 || (major === 5 && minor >= 1), manifest.gladys_version);
+  assert.deepEqual(
+    manifest.widgets.map((widget) => widget.key).sort(),
+    Object.values(WIDGET).sort(),
+  );
+  assert.ok(manifest.widgets.length <= 5);
+  assert.match(indexSource, /onWidgetGet\(/);
+  assert.match(indexSource, /onWidgetGetImage\(/);
+  for (const widget of manifest.widgets) {
+    assert.match(widget.key, /^[a-z0-9_]{2,32}$/);
+    for (const text of Object.values(widget.label)) {
+      assert.ok(text.length >= 3 && text.length <= 30, `${widget.key}: ${text}`);
+    }
+    for (const text of Object.values(widget.description)) {
+      assert.ok(text.length <= 100, `${widget.key}: ${text.length}`);
+    }
+    assert.ok(widget.label.en && widget.label.fr && widget.description.en && widget.description.fr);
+    assert.ok((widget.settings || []).length <= 10);
+    for (const field of widget.settings || []) {
+      assert.ok(
+        ['string', 'number', 'boolean', 'select', 'multi_select', 'section'].includes(field.type),
+      );
+      assert.ok(field.label.en && field.label.fr);
+    }
+    // Every widget shows the robot picked, among the robots added to Gladys.
+    const robot = widget.settings.find((field) => field.key === 'robot');
+    assert.equal(robot.source, 'devices');
+    assert.equal(robot.required, false);
+  }
+  const quick = manifest.widgets.find((widget) => widget.key === WIDGET.QUICK_CLEAN);
+  assert.deepEqual(
+    quick.settings.filter((field) => field.type === 'string').map((field) => field.key),
+    QUICK_BUTTON_SETTINGS,
+  );
 });

@@ -9,7 +9,9 @@
 //   - publishes the robots as discovered devices (state, run mode, suction,
 //     dock, battery, error, rooms, app shortcuts, consumables);
 //   - publishes every change the robot pushes in real time, Gladys polling
-//     only as a safety net; forwards the user commands to the robot.
+//     only as a safety net; forwards the user commands to the robot;
+//   - serves three dashboard widgets: the robot with its map, quick cleaning
+//     buttons, and the wear of its parts.
 //
 // The Gladys supervisor provides GLADYS_HOST_API_URL, GLADYS_INTEGRATION_TOKEN
 // and GLADYS_INTEGRATION_SELECTOR: `new GladysIntegration()` reads them.
@@ -20,6 +22,7 @@ import { GladysIntegration, logger } from '@gladysassistant/integration-sdk';
 import { didOf } from './src/devices/convertDevice.js';
 import { runDiagnostic } from './src/diagnostic.js';
 import { DreameIntegration } from './src/integration.js';
+import { WIDGET } from './src/widgets.js';
 
 const gladys = new GladysIntegration();
 const dreame = new DreameIntegration({ gladys, logger });
@@ -52,6 +55,16 @@ gladys.onAction('dreame_diagnostic', (fields) =>
   runDiagnostic(dreame, { did: didOf(gladys, fields && fields.device) }),
 );
 gladys.onConfigUpdated((config) => dreame.onConfigUpdated(config));
+
+// --- Dashboard widgets (Gladys 5.1+) ---------------------------------------------
+for (const key of Object.values(WIDGET)) {
+  gladys.onWidgetGet(key, (request) => dreame.widgetContent(key, request));
+}
+// The buttons carry the robot id: the same handler serves every widget.
+for (const key of [WIDGET.ROBOT, WIDGET.QUICK_CLEAN]) {
+  gladys.onWidgetAction(key, (actionKey, params) => dreame.widgetAction(actionKey, params));
+}
+gladys.onWidgetGetImage((imageKey) => dreame.widgetImage(imageKey));
 
 // --- Connection lifecycle ------------------------------------------------------
 gladys.on('connected', () => {

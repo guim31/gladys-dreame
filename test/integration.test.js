@@ -8,6 +8,7 @@ import { mkdtempSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import * as mqttLibrary from 'mqtt';
+import { validateWidgetContent, validateWidgetImage } from '@gladysassistant/integration-sdk';
 
 import { DreameCloud, hashPassword } from '../src/dreame/cloud.js';
 import { DreameIntegration } from '../src/integration.js';
@@ -214,6 +215,49 @@ test('a linked account, from discovery to commands', async (t) => {
     );
     await dreame.setValue(device, { external_id: ids.feature('room-pick-1') }, 0);
     await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 0);
+  });
+
+  await t.test('the widgets: content, map image, buttons and nudges', async () => {
+    const content = dreame.widgetContent('robot', { settings: {}, language: 'fr' });
+    assert.deepEqual(validateWidgetContent(content), []);
+    assert.ok(content.components[0].text.startsWith(`${ROBOT.name} · `));
+    // the robot was added: its battery tile is live
+    assert.equal(
+      content.components.find((c) => c.type === 'value').device_feature,
+      ids.feature('battery'),
+    );
+    // the map read at discovery, drawn and served by its key
+    const { key } = content.components.find((c) => c.type === 'image');
+    assert.deepEqual(validateWidgetImage(dreame.widgetImage(key)), []);
+    assert.throws(() => dreame.widgetImage('map-unknown'), /Unknown image/);
+    // the settings may name the robot by its device
+    const named = dreame.widgetContent('maintenance', {
+      settings: { robot: ids.device },
+      language: 'en',
+    });
+    assert.deepEqual(validateWidgetContent(named), []);
+    assert.match(named.components[0].text, /^Maintenance · /);
+
+    const quick = dreame.widgetContent('quick_clean', {
+      settings: { button_1: 'Cuisine' },
+      language: 'fr',
+    });
+    const button = quick.components.find((c) => c.type === 'button');
+    const message = await dreame.widgetAction(button.action.key, button.action.params);
+    assert.deepEqual(message, { en: 'Cleaning started: Kitchen', fr: 'Nettoyage lancé : Cuisine' });
+    const clean = fake.state.commands.at(-1).params.in;
+    assert.deepEqual(
+      JSON.parse(clean[1].value).selects.map((entry) => entry[0]),
+      [2],
+    );
+    await assert.rejects(
+      dreame.widgetAction('explode', { did: ROBOT.did }),
+      /Unknown widget action/,
+    );
+
+    // a state change nudges the widgets that show it
+    await waitUntil(() => gladys.widgetRefreshes.includes('robot'), 'a widget nudge');
+    assert.ok(gladys.widgetRefreshes.includes('quick_clean'));
   });
 
   await t.test('the pause button pauses, then resumes', async () => {

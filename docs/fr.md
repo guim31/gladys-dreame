@@ -63,6 +63,28 @@ choisit alors lui-même.
 > (_Nettoyer_ / _Repos_ ; _Cartographier_ n'est pas pris en charge) et **Texte** le
 > message d'erreur. Vous pouvez renommer ces lignes dans la boîte du tableau de bord.
 
+## Widgets du tableau de bord
+
+Avec Gladys 5.1 ou plus récent, l'intégration propose trois widgets (**Modifier le
+tableau de bord** → **Ajouter un widget**). Chacun affiche le robot choisi dans ses
+réglages, ou le premier robot du compte.
+
+- **Robot aspirateur** — le nom et l'état du robot, la batterie en direct, la
+  **carte du logement** (pièces en couleurs, base en vert, robot en blanc), les
+  réglages en cours (mode, aspiration, itinéraire, humidité), le dernier nettoyage,
+  la pièce d'usure la plus usée, et quatre boutons : _Nettoyer_ (ou _Reprendre_),
+  _Pause_, _Base_, _Localiser_. La carte est relue toutes les minutes pendant un
+  nettoyage, toutes les 30 minutes sinon, et seulement quand un tableau de bord
+  l'affiche. Les noms des pièces n'y figurent pas.
+- **Nettoyage express** — jusqu'à quatre boutons. Sans réglage, ce sont les
+  raccourcis de l'application Dreamehome ; sinon, écrivez dans **Bouton 1** à **4**
+  le nom d'un raccourci ou d'une pièce tel que Gladys l'affiche (majuscules et
+  accents indifférents), ou « Nettoyer la sélection ». Pratique sur une tablette
+  murale.
+- **Entretien du robot** — les trois pièces les plus usées en jauges, puis toutes
+  les pièces suivies, de la plus usée à la moins usée : en rouge sous 10 %, en
+  orange sous 30 %.
+
 ## Configuration
 
 1. Dans l'intégration, boîte **Actions**, remplissez **Lier le compte** : l'e-mail

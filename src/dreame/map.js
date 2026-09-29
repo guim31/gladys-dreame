@@ -9,8 +9,9 @@
 //   2. download the file through a signed URL;
 //   3. decode: URL-safe base64 -> (AES-256-CBC, key = the first 32 hex
 //      characters of sha256(<key>), IV = a per-model constant) -> zlib;
-//   4. a 27-byte header (the grid width and height at bytes 19 and 21), the
-//      grid itself (width x height bytes), then the JSON trailer, whose
+//   4. a 27-byte header (robot and charger positions, the cell size, the grid
+//      width and height, its origin), the grid itself (width x height bytes,
+//      one per cell: see render.js), then the JSON trailer, whose
 //      `seg_inf` object describes every room: `{ "<id>": { type, index, name } }`,
 //      `name` being base64 and only present for a room the user named.
 // Same format as the one the Home Assistant integration decodes.
@@ -47,7 +48,10 @@ export function splitObjectName(objectName) {
  * @param {string} [options.key] the key that followed the object name
  * @param {string} [options.iv] the IV of the model (needed when encrypted)
  * @returns {{ mapId: number, frameId: number, frameType: number, width: number,
- *   height: number, data: object }} the frame header and its JSON trailer
+ *   height: number, gridSize: number, left: number, top: number,
+ *   robot: object|null, charger: object|null, grid: Buffer, data: object }}
+ *   the frame header, its grid and its JSON trailer; positions are
+ *   `{ x, y, angle }` in millimetres, like the origin (`left`, `top`)
  */
 export function decodeMapFrame(raw, { key = null, iv = null } = {}) {
   let text = String(raw || '')
@@ -103,12 +107,26 @@ export function decodeMapFrame(raw, { key = null, iv = null } = {}) {
       throw new MapDecodeError(`map trailer is not JSON: ${err.message}`);
     }
   }
+  const position = (offset, absent) => {
+    const angle = frame.readInt16LE(offset + 4);
+    // 32767 is "no position", and the trailer may say so too.
+    return absent || angle === 32767
+      ? null
+      : { x: frame.readInt16LE(offset), y: frame.readInt16LE(offset + 2), angle };
+  };
+  const origin = Array.isArray(data.origin) && data.origin.length > 1 ? data.origin : null;
   return {
     mapId: frame.readInt16LE(0),
     frameId: frame.readInt16LE(2),
     frameType: frame.readInt8(4),
     width,
     height,
+    gridSize: frame.readInt16LE(17),
+    left: origin ? Number(origin[0]) : frame.readInt16LE(23),
+    top: origin ? Number(origin[1]) : frame.readInt16LE(25),
+    robot: position(5, Boolean(data.nr)),
+    charger: position(11, Boolean(data.nc)),
+    grid: frame.subarray(MAP_HEADER_SIZE, Math.min(gridEnd, frame.length)),
     data,
   };
 }

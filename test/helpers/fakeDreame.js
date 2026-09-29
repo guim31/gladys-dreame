@@ -18,7 +18,7 @@ import { Aedes } from 'aedes';
 import { hashPassword } from '../../src/dreame/cloud.js';
 import { mapIvFor } from '../../src/dreame/models.js';
 import { mergeSettings } from '../../src/dreame/settings.js';
-import { buildMapFrame, segment } from './mapFrame.js';
+import { buildMapFrame, roomGrid, segment } from './mapFrame.js';
 
 export const ACCOUNT = {
   // a `+` and a space, to check the form encoding
@@ -162,9 +162,31 @@ export async function startFakeDreame({
   const objectName = `${ROBOT.model}/${ACCOUNT.uid}/${ROBOT.did}/map-1700000000`;
   // Some firmwares (dreame.vacuum.r2449a) keep the rooms only in the saved
   // map embedded in the current one, under `rism`.
+  // Four rooms in a row, the charger in the first one, the robot in the third.
+  const layout = {
+    width: 40,
+    height: 12,
+    grid: roomGrid(40, 12, {
+      1: [0, 0, 9, 11],
+      2: [10, 0, 19, 11],
+      3: [20, 0, 29, 11],
+      4: [30, 0, 39, 11],
+    }),
+  };
+  const positions = {
+    charger: { x: 150, y: 300, angle: 0 },
+    robot: { x: 1250, y: 300, angle: 90 },
+  };
   const mapFrame = buildMapFrame({
+    ...(roomsInSavedMap
+      ? { ...positions, width: 40, height: 12, grid: Buffer.alloc(480, 1) }
+      : { ...layout, ...positions }),
     data: roomsInSavedMap
-      ? { timestamp_ms: 1700000000000, rism: buildMapFrame({ data: { seg_inf: ROOMS } }) }
+      ? {
+          timestamp_ms: 1700000000000,
+          ris: 2,
+          rism: buildMapFrame({ ...layout, data: { seg_inf: ROOMS } }),
+        }
       : { seg_inf: ROOMS, timestamp_ms: 1700000000000 },
     key: MAP_KEY,
     iv: mapIvFor(ROBOT.model).iv,

@@ -21,7 +21,8 @@ import {
   usesNewStateNumbering,
 } from './dreame/models.js';
 import { cleaningModeOf, moppingOf, splitGroup } from './dreame/mopping.js';
-import { fetchRooms } from './dreame/rooms.js';
+import { renderMap } from './dreame/render.js';
+import { fetchMap } from './dreame/rooms.js';
 import { parseSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
 import { firmwareOf, isRobotVacuum } from './integration.js';
@@ -150,14 +151,23 @@ async function diagnoseRobot(integration, record, index) {
 
   const trace = [];
   try {
-    const rooms = await fetchRooms(cloud, robot, {
+    const map = await fetchMap(cloud, robot, {
       // Only a discovered robot has a real-time channel to push on.
       waitForPush: known ? (ms) => integration.waitForMapLocation(robot, ms) : null,
       trace,
     });
+    const { rooms } = map;
     const types = rooms.map((room) => room.type).join(',');
     const named = rooms.filter((room) => room.customName).length;
     lines.push(`  Rooms: ${rooms.length} (types ${types || '-'}; ${named} with a custom name)`);
+    const drawn = map.saved && !map.frame.data.seg_inf ? map.saved : map.frame;
+    const image = renderMap(map, { mapV2: Boolean(caps && caps.flags.has('mapV2')) });
+    lines.push(
+      `  Map image: ${image ? `${image.width}x${image.height} px, ${Math.round(image.png.length / 1024)} KB` : 'empty map'}` +
+        ` (drawn from the ${drawn === map.saved ? 'saved' : 'current'} map, cell ${drawn.gridSize} mm,` +
+        ` fsm ${drawn.data.fsm ?? '-'}, ris ${drawn.data.ris ?? '-'}; robot ${map.frame.robot ? 'placed' : 'absent'},` +
+        ` charger ${map.frame.charger || drawn.charger ? 'placed' : 'absent'})`,
+    );
   } catch (err) {
     trace.push(`FAILED: ${err.message}`);
     lines.push('  Rooms: not read');

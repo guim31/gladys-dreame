@@ -30,7 +30,20 @@ export const MAP_PUSH_WAIT_MS = Number(process.env.DREAME_MAP_PUSH_WAIT_MS) || 1
  * @param {Array<string>} [options.trace] receives one line per step
  * @returns {Promise<Array>} the rooms (roomsOf())
  */
-export async function fetchRooms(cloud, robot, { waitForPush = null, trace = [] } = {}) {
+export async function fetchRooms(cloud, robot, options = {}) {
+  return (await fetchMap(cloud, robot, options)).rooms;
+}
+
+/**
+ * Fetch the map of a robot: the current frame, the saved map embedded in it
+ * when there is one, and the rooms.
+ * @param {object} cloud the DreameCloud
+ * @param {object} robot the robot (`did`, `model`, `masterUid`, `bindDomain`)
+ * @param {object} [options] see fetchRooms()
+ * @returns {Promise<{ frame: object, saved: object|null, rooms: Array }>} the
+ *   decoded frames (decodeMapFrame()) and the rooms (roomsOf())
+ */
+export async function fetchMap(cloud, robot, { waitForPush = null, trace = [] } = {}) {
   let location = { objectName: null, frame: null };
   try {
     const result = await cloud.action(robot, ACTION.REQUEST_MAP, [
@@ -75,14 +88,16 @@ export async function fetchRooms(cloud, robot, { waitForPush = null, trace = [] 
   // Key names only: they tell where a firmware keeps its rooms.
   trace.push(`map keys: ${Object.keys(frame.data).sort().join(' ') || 'none'}`);
   let rooms = roomsOf(frame);
+  let saved = null;
   if (!frame.data.seg_inf && typeof frame.data.rism === 'string') {
     // Recent firmwares keep the rooms in the saved map embedded in the
     // current one (`rism`), a frame of the same format.
-    rooms = roomsOf(decodeMapFrame(frame.data.rism, { iv }));
+    saved = decodeMapFrame(frame.data.rism, { iv });
+    rooms = roomsOf(saved);
     trace.push(`rooms read from the embedded saved map (rism)`);
   }
   trace.push(`map decoded: ${frame.width}x${frame.height}, ${rooms.length} room(s)`);
-  return rooms;
+  return { frame, saved, rooms };
 }
 
 function describe({ objectName, frame }) {

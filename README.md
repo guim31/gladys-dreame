@@ -24,6 +24,8 @@ documentation: [`docs/fr.md`](docs/fr.md), [`docs/en.md`](docs/en.md).
   each one property by property: a feature is only published if the robot has it.
 - **Reads the rooms from the robot's map**: requests a full map frame, downloads
   it, decrypts it (AES-256-CBC with a per-model IV) and reads its `seg_inf`.
+- **Draws the map** for a dashboard widget, next to two others (quick cleaning
+  buttons, maintenance).
 - **Pushes the changes in real time**: one MQTT connection per robot, on the
   broker the robot is bound to. The Gladys poll (every minute) is only the safety
   net. A state is published when it changes, and only for the robots created in
@@ -114,6 +116,36 @@ integration (the robot has no such setting, and it survives restarts), and the
 the order of the map. Each entry carries 1 as its index on the robots with
 room-by-room settings and on the fifth generation (another index stops them), its
 position otherwise.
+
+### Dashboard widgets (Gladys 5.1+)
+
+| Widget            | Key           | Shows                                                                                                    |
+| ----------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
+| Robot vacuum      | `robot`       | name and state, live battery, the map, settings and last clean in a status list, Clean/Pause/Dock/Locate |
+| Quick clean       | `quick_clean` | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings                         |
+| Robot maintenance | `maintenance` | the 3 most worn parts as gauges, every part in a status list                                             |
+
+Gladys renders at most 8 components per widget, 2 of them texts: the name and the
+state share the heading. The buttons are widget actions carrying the robot id
+(they work for a robot not added to Gladys); the battery and wear gauges bind the
+device features when the robot was added, so they move live.
+
+**The map image** is drawn by the integration (`src/dreame/render.js`, no image
+library: a palette PNG written by hand, zlib doing the compression). Each cell of
+the grid is one byte whose meaning depends on the generation (room id in the low
+bits and a wall bit, or v3 maps with 5 room bits and 2 wall bits, or "frame maps"
+with the room id in the high bits, or a map being built with wall/floor only) —
+the formats the Home Assistant integration reads. The rows are flipped (the
+world's y axis goes up), the map is cropped and scaled to fit the 16:9 frame,
+rooms get colors neighbours never share, and the charger and robot are drawn
+from the header positions (millimetres). When the rooms live in the saved map
+(`rism`), that is the one drawn, the robot position still coming from the current
+frame. The image key is a hash of its bytes: Gladys caches an image for an hour
+by key. The map is re-read only when a dashboard asks for the widget, and only
+if it is older than 50 s while the robot moves (30 min otherwise); the widget is
+then nudged. Its content lives 60 s while the robot moves, 10 min otherwise.
+The integration nudges the widgets when the states they show change, the last
+change of a burst sent at the end of Gladys' 10 s window rather than dropped.
 
 ## Configuration
 

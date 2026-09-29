@@ -37,6 +37,7 @@ FLAGS = {
     "CLEANING_ROUTE": "cleaningRoute",
     "CLEANING_ROUTE_V2": "cleaningRouteV2",
     "GEN5": "gen5",
+    "MAP_V2": "mapV2",
 }
 # Capability values kept: the bounds of the mop washing frequency.
 VALUES = {

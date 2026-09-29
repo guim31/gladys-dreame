@@ -112,6 +112,7 @@ export const PROP = {
   BATTERY: '3.1',
   CHARGING_STATUS: '3.2',
   STATUS: '4.1',
+  // The current (or last) clean: minutes, square metres.
   CLEANING_TIME: '4.2',
   CLEANED_AREA: '4.3',
   SUCTION_LEVEL: '4.4',
@@ -168,6 +169,8 @@ export const STATUS_PROPERTIES = [
   PROP.BATTERY,
   PROP.CHARGING_STATUS,
   PROP.STATUS,
+  PROP.CLEANING_TIME,
+  PROP.CLEANED_AREA,
   PROP.SUCTION_LEVEL,
   PROP.WATER_VOLUME,
   PROP.TASK_STATUS,

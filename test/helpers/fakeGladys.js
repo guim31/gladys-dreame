@@ -22,6 +22,7 @@ export function createFakeGladys({ devices = [], config = {} } = {}) {
     transports: [],
     statuses: [],
     configWrites: [],
+    widgetRefreshes: [],
     externalId(suffix) {
       return `ext:${SELECTOR}:${suffix}`;
     },
@@ -47,6 +48,9 @@ export function createFakeGladys({ devices = [], config = {} } = {}) {
     },
     async setConnectionStatus(connected, message) {
       this.statuses.push({ connected, message });
+    },
+    requestWidgetRefresh(key) {
+      this.widgetRefreshes.push(key);
     },
   };
 }

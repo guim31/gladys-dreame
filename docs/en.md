@@ -56,6 +56,25 @@ The settings apply to the next clean, started from Gladys or from the app, unles
 > type: **Run Mode** is the cleaning (_Clean_ / _Idle_; _Mapping_ is not supported)
 > and **Text** the error message. These rows can be renamed in the dashboard box.
 
+## Dashboard widgets
+
+With Gladys 5.1 or later, the integration offers three widgets (**Edit the
+dashboard** → **Add a widget**). Each shows the robot picked in its settings, or
+the first robot of the account.
+
+- **Robot vacuum** — the name and state of the robot, the live battery, the **map
+  of the home** (rooms in colors, dock in green, robot in white), the current
+  settings (mode, suction, route, wetness), the last clean, the most worn part,
+  and four buttons: _Clean_ (or _Resume_), _Pause_, _Dock_, _Locate_. The map is
+  read again every minute while cleaning, every 30 minutes otherwise, and only
+  while a dashboard shows it. Room names are not written on it.
+- **Quick clean** — up to four buttons. Without settings, the shortcuts of the
+  Dreamehome app; otherwise, write in **Button 1** to **4** the name of a
+  shortcut or a room as Gladys shows it (case and accents do not matter), or
+  "Clean the selection". Handy on a wall tablet.
+- **Robot maintenance** — the three most worn parts as gauges, then every part
+  tracked, the most worn first: red under 10 %, orange under 30 %.
+
 ## Configuration
 
 1. In the integration, **Actions** box, fill in **Link the account**: the email

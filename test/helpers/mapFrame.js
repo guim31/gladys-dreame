@@ -17,6 +17,12 @@ import { deflateSync } from 'node:zlib';
  * @param {object} [options.data] the JSON trailer
  * @param {string} [options.key] encrypt with this key
  * @param {string} [options.iv] and this IV
+ * @param {Buffer} [options.grid] the cells (row 0 is the lowest y), room 1
+ *   everywhere by default
+ * @param {object} [options.robot] `{ x, y, angle }` in millimetres
+ * @param {object} [options.charger] `{ x, y, angle }` in millimetres
+ * @param {number} [options.left] x of the grid origin, millimetres
+ * @param {number} [options.top] y of the grid origin, millimetres
  * @returns {string} the frame as the robot uploads it
  */
 export function buildMapFrame({
@@ -26,15 +32,29 @@ export function buildMapFrame({
   data = {},
   key = null,
   iv = null,
+  grid = null,
+  robot = null,
+  charger = null,
+  left = 0,
+  top = 0,
 } = {}) {
   const header = Buffer.alloc(27);
   header.writeInt16LE(3, 0); // map id
   header.writeInt16LE(1, 2); // frame id
   header.writeInt8(frameType, 4);
+  const position = (offset, point) => {
+    header.writeInt16LE(point ? point.x : 0, offset);
+    header.writeInt16LE(point ? point.y : 0, offset + 2);
+    header.writeInt16LE(point ? point.angle || 0 : 32767, offset + 4);
+  };
+  position(5, robot);
+  position(11, charger);
   header.writeInt16LE(50, 17); // grid size
   header.writeInt16LE(width, 19);
   header.writeInt16LE(height, 21);
-  const grid = Buffer.alloc(width * height, 1);
+  header.writeInt16LE(left, 23);
+  header.writeInt16LE(top, 25);
+  grid = grid || Buffer.alloc(width * height, 1);
   let payload = deflateSync(Buffer.concat([header, grid, Buffer.from(JSON.stringify(data))]));
   if (key) {
     const keyBytes = Buffer.from(
@@ -61,4 +81,26 @@ export function segment({ type = 0, index = 0, name = null } = {}) {
     entry.name = Buffer.from(name, 'utf8').toString('base64');
   }
   return entry;
+}
+
+/**
+ * A grid of rooms drawn as rectangles, walls around each, for the renderer:
+ * `rooms` maps a room id to `[x0, y0, x1, y1]` (cells, inclusive).
+ * @param {number} width grid width
+ * @param {number} height grid height
+ * @param {object} rooms the rectangles
+ * @returns {Buffer} the cells, in the "room id in the low bits, high bit for a
+ *   wall" format
+ */
+export function roomGrid(width, height, rooms) {
+  const grid = Buffer.alloc(width * height, 0);
+  for (const [id, [x0, y0, x1, y1]] of Object.entries(rooms)) {
+    for (let y = y0; y <= y1; y += 1) {
+      for (let x = x0; x <= x1; x += 1) {
+        const edge = x === x0 || x === x1 || y === y0 || y === y1;
+        grid[y * width + x] = edge ? 0x80 : Number(id);
+      }
+    }
+  }
+  return grid;
 }
