@@ -110,6 +110,14 @@ are named as the app names them: by type when they have one ("Kitchen",
 "—" when the room clean is over, when it never started (2 minutes), and once after
 a restart. Rooms and shortcuts are re-read every 6 hours, and at every scan.
 
+**Wear parts.** A robot may answer for a part its model does not have — the
+first tester's r2449a reports 0 % for wheels. For a model the table knows, a part
+is only published when the model has its capability (wheels, squeegee, scale
+inhibitor, deodorizer…) or lacks the one that rules it out (sensors, mop pads,
+detergent), the rule the Home Assistant integration applies; the diagnostic lists
+the parts answered but left out. A model unknown to the table keeps every part it
+answers for.
+
 Several rooms at once: each room has a **Selection** switch, kept by the
 integration (the robot has no such setting, and it survives restarts), and the
 **Clean the selection** button starts a segment clean of the rooms switched on, in
@@ -119,16 +127,27 @@ position otherwise.
 
 ### Dashboard widgets (Gladys 5.1+)
 
-| Widget            | Key           | Shows                                                                                                    |
-| ----------------- | ------------- | -------------------------------------------------------------------------------------------------------- |
-| Robot vacuum      | `robot`       | name and state, live battery, the map, settings and last clean in a status list, Clean/Pause/Dock/Locate |
-| Quick clean       | `quick_clean` | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings                         |
-| Robot maintenance | `maintenance` | the 3 most worn parts as gauges, every part in a status list                                             |
+| Widget            | Key             | Shows                                                                                                                  |
+| ----------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Robot vacuum      | `robot`         | name and state, live battery, the map, settings and last clean in a status list, Clean/Pause/Dock/Locate               |
+| Quick clean       | `quick_clean`   | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings ("Kitchen + Living room" for several) |
+| Robot setting     | `robot_setting` | one setting (mode, suction, max suction, route, wetness, mop washing) as up to 4 buttons, the current choice lit       |
+| Robot maintenance | `maintenance`   | the 3 most worn parts as gauges, every part in a status list                                                           |
 
-Gladys renders at most 8 components per widget, 2 of them texts: the name and the
-state share the heading. The buttons are widget actions carrying the robot id
-(they work for a robot not added to Gladys); the battery and wear gauges bind the
-device features when the robot was added, so they move live.
+Gladys renders at most 8 components per widget, 2 of them texts and 4 of them
+buttons: the name and the state share the heading. The buttons are widget actions
+carrying the robot id (they work for a robot not added to Gladys); the battery and
+wear gauges bind the device features when the robot was added, so they move live.
+**Gladys drops a button whose action key another button of the widget already
+uses**: the keys are numbered (`quick_1`…, `choice_1`…) and what a button does
+travels in its params, checked against a whitelist (`widgetCommand()`).
+
+The widget vocabulary has no select nor slider: a setting is a row of up to four
+buttons, the robot's current choice styled `primary` with a check icon — the
+segmented buttons of the app. A wetness button sets the middle of its range of the
+app's slider (5, 16, 27), as the Home Assistant integration does. The widgets are
+nudged whenever a property they show changes (`applyProps()`), whether or not the
+robot was added to Gladys.
 
 **The map image** is drawn by the integration (`src/dreame/render.js`, no image
 library: a palette PNG written by hand, zlib doing the compression). Each cell of

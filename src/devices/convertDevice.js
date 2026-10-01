@@ -63,6 +63,7 @@ export function convertDevice(gladys, robot, language) {
         hasRoute: Boolean(robot.hasRoute),
         settingKeys: robot.settingKeys || new Set(),
         mopping: robot.mopping,
+        caps: robot.caps || null,
       },
       language,
     ),

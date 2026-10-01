@@ -138,24 +138,29 @@ export const PROP = {
 // Consumables, as the remaining life in percent. The robot reports a pair per
 // part (hours left + percent left) in the same service: only the percent is
 // used. The order is the order of the Gladys features.
+// A robot may answer for a part it does not have (the wheels of a
+// dreame.vacuum.r2449a, at 0 %): for a model the table knows, a part flagged
+// `needs` is only kept when the model has that capability, a part flagged
+// `unless` is dropped when it has that one — as the Home Assistant integration
+// decides which parts to show.
 export const CONSUMABLES = [
   { code: 'main-brush', prop: '9.2' },
   { code: 'side-brush', prop: '10.2' },
   { code: 'filter', prop: '11.1' },
-  { code: 'sensor', prop: '16.1' },
-  { code: 'mop-pad', prop: '18.1' },
+  { code: 'sensor', prop: '16.1', unless: 'disableSensorCleaning' },
+  { code: 'mop-pad', prop: '18.1', unless: 'disableMopConsumable' },
   { code: 'tank-filter', prop: '17.1' },
   { code: 'silver-ion', prop: '19.2' },
-  { code: 'detergent', prop: '20.1' },
-  { code: 'squeegee', prop: '24.1' },
+  { code: 'detergent', prop: '20.1', unless: 'noDetergent' },
+  { code: 'squeegee', prop: '24.1', needs: 'squeegee' },
   { code: 'dirty-water-channel', prop: '25.2' },
-  { code: 'onboard-dirty-water-tank', prop: '26.2' },
-  { code: 'deodorizer', prop: '29.2' },
-  { code: 'wheel', prop: '30.2' },
-  { code: 'scale-inhibitor', prop: '31.2' },
-  { code: 'fluffing-roller', prop: '32.1' },
-  { code: 'roller-mop-filter', prop: '33.2' },
-  { code: 'water-outlet-filter', prop: '35.2' },
+  { code: 'onboard-dirty-water-tank', prop: '26.2', needs: 'onboardDirtyWaterTank' },
+  { code: 'deodorizer', prop: '29.2', needs: 'deodorizer' },
+  { code: 'wheel', prop: '30.2', needs: 'wheel' },
+  { code: 'scale-inhibitor', prop: '31.2', needs: 'scaleInhibitor' },
+  { code: 'fluffing-roller', prop: '32.1', needs: 'fluffingRoller' },
+  { code: 'roller-mop-filter', prop: '33.2', needs: 'rollerMopFilter' },
+  { code: 'water-outlet-filter', prop: '35.2', needs: 'waterOutletFilter' },
   { code: 'track-cleaning', prop: '36.2' },
   { code: 'washboard-cleaning', prop: '37.2' },
   { code: 'filter-cleaning', prop: '38.2' },

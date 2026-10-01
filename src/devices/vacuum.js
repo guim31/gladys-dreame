@@ -77,6 +77,7 @@ import {
   washValueOf,
   washValueWrite,
 } from '../dreame/mopping.js';
+import { tracksConsumable } from '../dreame/models.js';
 import { parseSettings } from '../dreame/settings.js';
 import { describeError, texts } from '../i18n.js';
 
@@ -147,6 +148,8 @@ function selectOptions(entries, labels) {
  * @param {boolean} [robot.hasRoute] whether it has the cleaning route setting
  * @param {Set<string>} [robot.settingKeys] the settings (4.50) it has
  * @param {object} [robot.mopping] moppingOf() of the robot
+ * @param {object|null} [robot.caps] modelCapabilities() of the robot (the wear
+ *   parts it really has)
  * @param {string} language `fr` or `en`
  * @returns {Array} Gladys device features
  */
@@ -159,6 +162,7 @@ export function buildVacuumFeatures(
     hasRoute = false,
     settingKeys = new Set(),
     mopping = null,
+    caps = null,
   },
   language,
 ) {
@@ -330,7 +334,7 @@ export function buildVacuumFeatures(
   }
   add(FEATURE_CODES.LOCATE, t.features.locate, pushButton());
   for (const consumable of CONSUMABLES) {
-    if (!has(consumable.prop)) {
+    if (!has(consumable.prop) || !tracksConsumable(caps, consumable)) {
       continue;
     }
     add(`${FEATURE_CODES.CONSUMABLE_PREFIX}${consumable.code}`, t.consumables[consumable.code], {
@@ -650,6 +654,21 @@ function roomClean(rooms, props, fixedIndex) {
       { piid: START_CUSTOM_PIID.PARAMETERS, value: JSON.stringify({ selects }) },
     ],
   };
+}
+
+/**
+ * A clean of several rooms, outside the rooms picked (a widget button).
+ * @param {Array<number>} rooms the room ids
+ * @param {Map<string, *>} props the robot properties
+ * @param {object|null} mopping moppingOf() of the robot
+ * @returns {object} the START_CUSTOM action
+ */
+export function buildRoomsClean(rooms, props, mopping) {
+  const ids = rooms.map(Number).filter((room) => Number.isSafeInteger(room) && room > 0);
+  if (ids.length === 0) {
+    throw new UnsupportedCommandError('No room to clean');
+  }
+  return roomClean(ids, props, Boolean(mopping && (mopping.custom || mopping.gen5)));
 }
 
 function settingWrite(key, value) {

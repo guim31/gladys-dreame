@@ -38,6 +38,19 @@ FLAGS = {
     "CLEANING_ROUTE_V2": "cleaningRouteV2",
     "GEN5": "gen5",
     "MAP_V2": "mapV2",
+    # The wear parts only some models have (a robot may still answer the
+    # property of a part it does not have, with 0).
+    "WHEEL": "wheel",
+    "SQUEEGEE": "squeegee",
+    "ONBOARD_DIRTY_WATER_TANK": "onboardDirtyWaterTank",
+    "DEODORIZER": "deodorizer",
+    "SCALE_INHIBITOR": "scaleInhibitor",
+    "FLUFFING_ROLLER": "fluffingRoller",
+    "ROLLER_MOP_FILTER": "rollerMopFilter",
+    "WATER_OUTLET_FILTER": "waterOutletFilter",
+    "DISABLE_MOP_CONSUMABLE": "disableMopConsumable",
+    "DISABLE_SENSOR_CLEANING": "disableSensorCleaning",
+    "NO_DETERGENT": "noDetergent",
 }
 # Capability values kept: the bounds of the mop washing frequency.
 VALUES = {

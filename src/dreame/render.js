@@ -1,6 +1,7 @@
 // -----------------------------------------------------------------------------
 // The map of a robot as an image, for the dashboard widget: rooms in colors,
-// walls, the charger and the robot, as a PNG no larger than the widget frame.
+// walls, the charger and the robot (ringed in green when on its charger), as a
+// PNG no larger than the widget frame.
 //
 // Each grid cell is one byte whose meaning depends on the generation and on the
 // state of the map (Home Assistant integration Tasshack/dreame-vacuum, MIT):
@@ -217,14 +218,26 @@ export function renderMap({ frame, saved = null }, { mapV2 = false } = {}) {
   const radius = Math.max(7, Math.round((175 / (base.gridSize || 50)) * scale));
   const canvas = { pixels, width: imageWidth, height: imageHeight };
   const charger = frame.charger || base.charger;
+  const robot = frame.robot ? toImage(frame.robot) : null;
   if (charger) {
     const at = toImage(charger);
-    disc(canvas, at, Math.max(5, Math.round(radius * 0.7)), INDEX.CHARGER, INDEX.CHARGER_EDGE);
+    const docked = robot && Math.hypot(robot.x - at.x, robot.y - at.y) < radius;
+    if (docked) {
+      // The robot sits on its base and would hide it: a green ring around it.
+      disc(
+        canvas,
+        robot,
+        radius + Math.max(3, Math.round(radius / 3)),
+        INDEX.CHARGER,
+        INDEX.CHARGER,
+      );
+    } else {
+      disc(canvas, at, Math.max(5, Math.round(radius * 0.7)), INDEX.CHARGER, INDEX.CHARGER_EDGE);
+    }
   }
-  if (frame.robot) {
-    const at = toImage(frame.robot);
-    disc(canvas, at, radius, INDEX.ROBOT, INDEX.ROBOT_EDGE);
-    disc(canvas, at, Math.max(1, Math.round(radius / 3)), INDEX.ROBOT_EDGE, INDEX.ROBOT_EDGE);
+  if (robot) {
+    disc(canvas, robot, radius, INDEX.ROBOT, INDEX.ROBOT_EDGE);
+    disc(canvas, robot, Math.max(1, Math.round(radius / 3)), INDEX.ROBOT_EDGE, INDEX.ROBOT_EDGE);
   }
   const png = encodePng(canvas, PALETTE);
   const key = `map-${createHash('sha1').update(png).digest('hex').slice(0, 16)}`;

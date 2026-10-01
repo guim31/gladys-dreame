@@ -10,8 +10,8 @@
 //     dock, battery, error, rooms, app shortcuts, consumables);
 //   - publishes every change the robot pushes in real time, Gladys polling
 //     only as a safety net; forwards the user commands to the robot;
-//   - serves three dashboard widgets: the robot with its map, quick cleaning
-//     buttons, and the wear of its parts.
+//   - serves four dashboard widgets: the robot with its map, quick cleaning
+//     buttons, one setting as buttons, and the wear of its parts.
 //
 // The Gladys supervisor provides GLADYS_HOST_API_URL, GLADYS_INTEGRATION_TOKEN
 // and GLADYS_INTEGRATION_SELECTOR: `new GladysIntegration()` reads them.
@@ -61,7 +61,7 @@ for (const key of Object.values(WIDGET)) {
   gladys.onWidgetGet(key, (request) => dreame.widgetContent(key, request));
 }
 // The buttons carry the robot id: the same handler serves every widget.
-for (const key of [WIDGET.ROBOT, WIDGET.QUICK_CLEAN]) {
+for (const key of [WIDGET.ROBOT, WIDGET.QUICK_CLEAN, WIDGET.ROBOT_SETTING]) {
   gladys.onWidgetAction(key, (actionKey, params) => dreame.widgetAction(actionKey, params));
 }
 gladys.onWidgetGetImage((imageKey) => dreame.widgetImage(imageKey));

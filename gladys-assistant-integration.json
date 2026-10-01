@@ -1,9 +1,7 @@
 {
   "manifest_version": 1,
   "type": "device",
-  "categories": [
-    "appliances"
-  ],
+  "categories": ["appliances"],
   "name": "Dreame",
   "description": {
     "en": "Dreamehome robot vacuums: cleaning, suction and mop settings, rooms, shortcuts, consumables.",
@@ -13,9 +11,7 @@
   "docker_image": "ghcr.io/guim31/gladys-dreame:0.3.0",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-dreame/main/cover.jpg",
-  "transports": [
-    "cloud"
-  ],
+  "transports": ["cloud"],
   "config_schema": [
     {
       "key": "dreame_account",
@@ -234,8 +230,8 @@
         "fr": "Nettoyage express"
       },
       "description": {
-        "en": "Up to four buttons: shortcuts of the app, or rooms.",
-        "fr": "Jusqu'à quatre boutons : raccourcis de l'application, ou pièces."
+        "en": "Up to four buttons: shortcuts of the app, rooms, or several rooms.",
+        "fr": "Jusqu'à quatre boutons : raccourcis de l'application, pièces, ou plusieurs pièces."
       },
       "icon": "zap",
       "settings": [
@@ -261,8 +257,8 @@
             "fr": "Bouton 1"
           },
           "description": {
-            "en": "The name of a shortcut or a room, as Gladys shows it.",
-            "fr": "Le nom d'un raccourci ou d'une pièce, tel que Gladys l'affiche."
+            "en": "A shortcut or a room as Gladys shows it; several rooms: \"Kitchen + Living room\".",
+            "fr": "Un raccourci ou une pièce, tel que Gladys l'affiche ; plusieurs pièces : « Cuisine + Salon »."
           },
           "required": false
         },
@@ -274,8 +270,8 @@
             "fr": "Bouton 2"
           },
           "description": {
-            "en": "The name of a shortcut or a room, as Gladys shows it.",
-            "fr": "Le nom d'un raccourci ou d'une pièce, tel que Gladys l'affiche."
+            "en": "A shortcut or a room as Gladys shows it; several rooms: \"Kitchen + Living room\".",
+            "fr": "Un raccourci ou une pièce, tel que Gladys l'affiche ; plusieurs pièces : « Cuisine + Salon »."
           },
           "required": false
         },
@@ -287,8 +283,8 @@
             "fr": "Bouton 3"
           },
           "description": {
-            "en": "The name of a shortcut or a room, as Gladys shows it.",
-            "fr": "Le nom d'un raccourci ou d'une pièce, tel que Gladys l'affiche."
+            "en": "A shortcut or a room as Gladys shows it; several rooms: \"Kitchen + Living room\".",
+            "fr": "Un raccourci ou une pièce, tel que Gladys l'affiche ; plusieurs pièces : « Cuisine + Salon »."
           },
           "required": false
         },
@@ -300,10 +296,97 @@
             "fr": "Bouton 4"
           },
           "description": {
-            "en": "The name of a shortcut or a room, as Gladys shows it.",
-            "fr": "Le nom d'un raccourci ou d'une pièce, tel que Gladys l'affiche."
+            "en": "A shortcut or a room as Gladys shows it; several rooms: \"Kitchen + Living room\".",
+            "fr": "Un raccourci ou une pièce, tel que Gladys l'affiche ; plusieurs pièces : « Cuisine + Salon »."
           },
           "required": false
+        }
+      ],
+      "action_timeout_seconds": 20
+    },
+    {
+      "key": "robot_setting",
+      "label": {
+        "en": "Robot setting",
+        "fr": "Réglage du robot"
+      },
+      "description": {
+        "en": "One setting of the app as buttons: mode, suction, route, wetness…",
+        "fr": "Un réglage de l'appli en boutons : mode, aspiration, itinéraire, humidité…"
+      },
+      "icon": "sliders",
+      "settings": [
+        {
+          "key": "robot",
+          "type": "select",
+          "source": "devices",
+          "label": {
+            "en": "Robot",
+            "fr": "Robot"
+          },
+          "description": {
+            "en": "Leave empty to show the first robot of the account.",
+            "fr": "Laissez vide pour afficher le premier robot du compte."
+          },
+          "required": false
+        },
+        {
+          "key": "setting",
+          "type": "select",
+          "label": {
+            "en": "Setting",
+            "fr": "Réglage"
+          },
+          "description": {
+            "en": "Add one widget per setting to show.",
+            "fr": "Ajoutez un widget par réglage à afficher."
+          },
+          "required": false,
+          "default": "cleaning_mode",
+          "options": [
+            {
+              "value": "cleaning_mode",
+              "label": {
+                "en": "Cleaning mode",
+                "fr": "Mode de nettoyage"
+              }
+            },
+            {
+              "value": "suction",
+              "label": {
+                "en": "Suction power",
+                "fr": "Puissance d'aspiration"
+              }
+            },
+            {
+              "value": "max_suction",
+              "label": {
+                "en": "Max suction power",
+                "fr": "Puissance d'aspiration maximale"
+              }
+            },
+            {
+              "value": "route",
+              "label": {
+                "en": "Cleaning route",
+                "fr": "Itinéraire"
+              }
+            },
+            {
+              "value": "wetness",
+              "label": {
+                "en": "Mop wetness",
+                "fr": "Humidité de la serpillière"
+              }
+            },
+            {
+              "value": "wash_frequency",
+              "label": {
+                "en": "Mop washing frequency",
+                "fr": "Fréquence de lavage de la serpillière"
+              }
+            }
+          ]
         }
       ],
       "action_timeout_seconds": 20

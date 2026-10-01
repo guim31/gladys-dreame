@@ -255,6 +255,31 @@ test('a linked account, from discovery to commands', async (t) => {
       /Unknown widget action/,
     );
 
+    // a setting as buttons: the lit one is the robot's, a press sets another
+    const suction = dreame.widgetContent('robot_setting', {
+      settings: { setting: 'suction' },
+      language: 'fr',
+    });
+    assert.deepEqual(validateWidgetContent(suction), []);
+    const quiet = suction.components.find((c) => c.type === 'button' && c.label === 'Silencieux');
+    assert.notEqual(quiet.style, 'primary');
+    const said = await dreame.widgetAction(quiet.action.key, quiet.action.params);
+    assert.deepEqual(said, { en: 'Suction: Quiet', fr: 'Aspiration : Silencieux' });
+    assert.deepEqual(fake.state.commands.at(-1).params, [
+      { did: ROBOT.did, siid: 4, piid: 4, value: 0 },
+    ]);
+    const after = dreame.widgetContent('robot_setting', {
+      settings: { setting: 'suction' },
+      language: 'fr',
+    });
+    assert.equal(
+      after.components.find((c) => c.type === 'button' && c.label === 'Silencieux').style,
+      'primary',
+    );
+    // back to the suction the next tests expect
+    const max = after.components.find((c) => c.type === 'button' && c.label === 'Max');
+    await dreame.widgetAction(max.action.key, max.action.params);
+
     // a state change nudges the widgets that show it
     await waitUntil(() => gladys.widgetRefreshes.includes('robot'), 'a widget nudge');
     assert.ok(gladys.widgetRefreshes.includes('quick_clean'));

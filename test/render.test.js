@@ -161,3 +161,24 @@ test('neighbouring rooms never share a color', () => {
   assert.notEqual(colors.get(1), colors.get(2));
   assert.notEqual(colors.get(2), colors.get(3));
 });
+
+test('a robot on its base is ringed in green, the base being under it', () => {
+  const at = { x: 1000, y: 700, angle: 0 };
+  const onBase = decodeMapFrame(
+    buildMapFrame({
+      width: 30,
+      height: 20,
+      grid: roomGrid(30, 20, { 1: [2, 2, 12, 8], 2: [13, 2, 27, 17] }),
+      robot: at,
+      charger: at,
+      data: { seg_inf: {} },
+    }),
+  );
+  const png = readPng(renderMap({ frame: onBase }).png);
+  // The robot is 28 px wide in radius at this scale: the ring is right outside.
+  const ringX = Math.floor((20 + 0.5) * 8) + 30;
+  const ringY = Math.floor((19 - 14 + 0.5) * 8);
+  assert.deepEqual(png.rgba(ringX, ringY), [47, 179, 68, 255]);
+  // Inside, the robot itself.
+  assert.deepEqual(png.rgba(Math.floor((20 + 0.5) * 8) + 10, ringY), [255, 255, 255, 255]);
+});

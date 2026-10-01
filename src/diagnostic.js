@@ -12,12 +12,13 @@
 
 import { readFileSync } from 'node:fs';
 
-import { DISCOVERY_PROPERTIES, PROP } from './constants.js';
+import { CONSUMABLES, DISCOVERY_PROPERTIES, PROP } from './constants.js';
 import { gladysStateOf } from './devices/vacuum.js';
 import {
   isKnownModel,
   mapIvFor,
   modelCapabilities,
+  tracksConsumable,
   usesNewStateNumbering,
 } from './dreame/models.js';
 import { cleaningModeOf, moppingOf, splitGroup } from './dreame/mopping.js';
@@ -130,6 +131,15 @@ async function diagnoseRobot(integration, record, index) {
   const caps = modelCapabilities(record.model, firmware);
   lines.push(
     `  Model capabilities: ${caps ? [...caps.flags].sort().join(' ') || 'none' : 'unknown'}`,
+  );
+  // A robot may answer for a wear part its model does not have.
+  const ignored = CONSUMABLES.filter(
+    (consumable) => props.has(consumable.prop) && !tracksConsumable(caps, consumable),
+  );
+  lines.push(
+    `  Wear parts answered but not on this model: ${
+      ignored.map((consumable) => `${consumable.code} (${consumable.prop})`).join(' ') || 'none'
+    }`,
   );
   const mopping = moppingOf(caps, new Set(props.keys()), new Set(settings ? settings.keys() : []));
   const offered = [

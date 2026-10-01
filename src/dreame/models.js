@@ -4,7 +4,8 @@
 // tools/extract-models.py):
 //   - the AES IV its map files are encrypted with;
 //   - from which firmware it numbers its states the new way;
-//   - how it stores its mop settings (see modelCapabilities()).
+//   - how it stores its mop settings, which wear parts it has (see
+//     modelCapabilities()).
 // Models are keyed by the last segment of the model id
 // (`dreame.vacuum.r2228o` -> `r2228o`).
 // -----------------------------------------------------------------------------
@@ -149,4 +150,21 @@ export function modelCapabilities(model, firmware) {
     }
   }
   return { flags, values };
+}
+
+/**
+ * Whether a robot has a wear part (see CONSUMABLES): a model unknown to the
+ * table keeps every part it answers for.
+ * @param {{ flags: Set<string> }|null} caps modelCapabilities() of the robot
+ * @param {{ needs?: string, unless?: string }} consumable the part
+ * @returns {boolean} true when the part is the robot's
+ */
+export function tracksConsumable(caps, consumable) {
+  if (!caps) {
+    return true;
+  }
+  if (consumable.needs && !caps.flags.has(consumable.needs)) {
+    return false;
+  }
+  return !(consumable.unless && caps.flags.has(consumable.unless));
 }

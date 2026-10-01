@@ -24,6 +24,7 @@ import {
   runModeOf,
   waterLevelOf,
 } from '../src/devices/vacuum.js';
+import { modelCapabilities } from '../src/dreame/models.js';
 import { createFakeGladys } from './helpers/fakeGladys.js';
 
 const CATEGORIES = new Set(Object.values(DEVICE_FEATURE_CATEGORIES));
@@ -528,4 +529,20 @@ test('the cleaning route is read from the settings and written one key at a time
 
 test('a read-only feature cannot be controlled', () => {
   assert.throws(() => buildCommand('battery', 50, props([])), UnsupportedCommandError);
+});
+
+test('a wear part the model does not have is not published, even when answered', () => {
+  const codes = (caps) =>
+    buildVacuumFeatures(ids, { capabilities: new Set(['9.2', '11.1', '30.2']), caps }, 'fr')
+      .map((feature) => feature.external_id.split(':').pop())
+      .filter((code) => code.startsWith('consumable-'));
+  // dreame.vacuum.r2449a answers 0 % for wheels it does not have.
+  assert.deepEqual(codes(modelCapabilities('dreame.vacuum.r2449a', '4.3.9_1771')), [
+    'consumable-main-brush',
+    'consumable-filter',
+  ]);
+  // A model the table knows with wheels to clean, and a model it does not know.
+  const withWheels = modelCapabilities('dreame.vacuum.r2416', '4.3.9_1');
+  assert.equal(withWheels.flags.has('wheel'), false);
+  assert.deepEqual(codes(null), ['consumable-main-brush', 'consumable-filter', 'consumable-wheel']);
 });

@@ -31,6 +31,7 @@ import {
 import { convertDevice, didOf, vacuumExternalIds } from './devices/convertDevice.js';
 import {
   buildCommand,
+  buildRoomsClean,
   buildStates,
   gladysStateOf,
   isRoomCleaning,
@@ -44,17 +45,18 @@ import { renderMap } from './dreame/render.js';
 import { fetchMap } from './dreame/rooms.js';
 import { mergeSettings, parseSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
-import { namedRooms } from './dreame/map.js';
 import { texts } from './i18n.js';
 import { MESSAGES } from './messages.js';
 import {
-  ACTIONS,
   WIDGET,
   maintenanceContent,
   messageContent,
   quickContent,
   robotContent,
+  settingContent,
+  widgetCommand,
   widgetLanguage,
+  widgetMessage,
 } from './widgets.js';
 import { RobotStore } from './store.js';
 import {
@@ -743,8 +745,11 @@ export class DreameIntegration {
    */
   onPush(robot, changes) {
     let shortcutsChanged = false;
+    this.applyProps(
+      robot,
+      changes.map(({ key, value }) => [key, value]),
+    );
     for (const { key, value } of changes) {
-      setProp(robot, key, value);
       if (key === '6.3' && typeof value === 'string' && value) {
         this.resolveMapWaiters(robot, { objectName: value, frame: null });
       }
@@ -835,9 +840,7 @@ export class DreameIntegration {
     ];
     try {
       const props = await this.guard(() => cloud.getProperties(robot, keys));
-      for (const [key, value] of props) {
-        setProp(robot, key, value);
-      }
+      this.applyProps(robot, props);
       robot.reachable = true;
       robot.lastError = null;
     } catch (err) {
@@ -884,7 +887,7 @@ export class DreameIntegration {
    * @param {*} value the value
    */
   async runCommand(robot, code, value) {
-    const cloud = this.requireCloud();
+    this.requireCloud();
     if (code === FEATURE_CODES.ROOM) {
       // Gladys stored the selection itself (no feedback): what was last
       // published no longer tells what the selector shows.
@@ -901,6 +904,17 @@ export class DreameIntegration {
       rooms: robot.rooms,
       picks: robot.picks,
     });
+    await this.execute(robot, code, command);
+  }
+
+  /**
+   * Send a command built by buildCommand() (or a clean of rooms).
+   * @param {object} robot the robot
+   * @param {string} code the feature it came from
+   * @param {object|null} command the command
+   */
+  async execute(robot, code, command) {
+    const cloud = this.requireCloud();
     if (!command) {
       return;
     }
@@ -912,17 +926,18 @@ export class DreameIntegration {
         robot.picks.delete(command.room);
       }
       this.saveRobot(robot);
+      this.nudge(WIDGET.QUICK_CLEAN);
       await this.publishRobot(robot);
       return;
     }
     if (command.kind === 'set') {
       await this.guard(() => cloud.setProperty(robot, command.key, command.value));
-      setProp(robot, command.key, command.value);
+      this.applyProps(robot, [[command.key, command.value]]);
     } else if (command.kind === 'writes') {
       // One at a time and in order, as the app writes them.
       for (const write of command.writes) {
         await this.guard(() => cloud.setProperty(robot, write.key, write.value));
-        setProp(robot, write.key, write.value);
+        this.applyProps(robot, [[write.key, write.value]]);
       }
     } else {
       await this.guard(() => cloud.action(robot, command.action, command.params));
@@ -1004,7 +1019,26 @@ export class DreameIntegration {
     for (const state of changed) {
       robot.published.set(state.device_feature_external_id, signature(state));
     }
-    this.nudgeWidgets(changed.map((state) => state.device_feature_external_id));
+  }
+
+  /**
+   * Record property values of a robot, and nudge the widgets that show the
+   * ones that changed — whether or not the robot was added to Gladys.
+   * @param {object} robot the robot
+   * @param {Iterable<Array>} entries `[key, value]` pairs
+   */
+  applyProps(robot, entries) {
+    const changed = [];
+    for (const [key, value] of entries) {
+      const before = JSON.stringify(robot.props.get(key));
+      setProp(robot, key, value);
+      if (JSON.stringify(robot.props.get(key)) !== before) {
+        changed.push(key);
+      }
+    }
+    if (changed.length > 0 && robot.capabilities) {
+      this.nudgeWidgets(changed);
+    }
   }
 
   // --- Dashboard widgets -------------------------------------------------------
@@ -1029,6 +1063,7 @@ export class DreameIntegration {
       props: robot.props,
       newNumbering: robot.newNumbering,
       mopping: robot.mopping,
+      caps: robot.caps || null,
       ids: vacuumExternalIds(this.gladys, robot.did),
       features: device
         ? new Set((device.features || []).map((feature) => feature.external_id))
@@ -1059,6 +1094,9 @@ export class DreameIntegration {
     if (key === WIDGET.QUICK_CLEAN) {
       return quickContent(this.viewOf(robot), settings || {}, lang);
     }
+    if (key === WIDGET.ROBOT_SETTING) {
+      return settingContent(this.viewOf(robot), settings || {}, lang);
+    }
     if (key === WIDGET.MAINTENANCE) {
       return maintenanceContent(this.viewOf(robot), lang);
     }
@@ -1067,38 +1105,30 @@ export class DreameIntegration {
 
   /**
    * A widget button was pressed.
-   * @param {string} actionKey the action (ACTIONS)
-   * @param {object} params what the content declared with it (`did`, `id`, `room`)
+   * @param {string} actionKey the key of the button
+   * @param {object} params what the content declared with it (`did`, and what
+   *   the button does, see widgetCommand())
    * @returns {Promise<object>} the message shown, in both languages
    */
   async widgetAction(actionKey, params = {}) {
-    const spec = ACTIONS[actionKey];
+    const command = widgetCommand(actionKey, params);
     const robot = this.robots.get(String(params.did));
-    if (!spec || !robot || !robot.capabilities) {
+    if (!command || !robot || !robot.capabilities) {
       throw new Error(`Unknown widget action: ${actionKey}`);
     }
-    let { code, value } = spec;
-    if (actionKey === 'shortcut') {
-      code = `${FEATURE_CODES.SHORTCUT_PREFIX}${Number(params.id)}`;
-    } else if (actionKey === 'clean_room') {
-      value = String(params.room);
+    if (command.rooms) {
+      await this.execute(
+        robot,
+        FEATURE_CODES.CLEAN_ROOMS,
+        buildRoomsClean(command.rooms, robot.props, robot.mopping),
+      );
+    } else {
+      await this.runCommand(robot, command.code, command.value);
     }
-    await this.runCommand(robot, code, value);
-    const message = (language) => {
-      const done = texts(language).widget.done;
-      if (actionKey === 'shortcut') {
-        const shortcut = robot.shortcuts.find((item) => String(item.id) === String(params.id));
-        return done.shortcut(shortcut ? shortcut.name : params.id);
-      }
-      if (actionKey === 'clean_room') {
-        const room = namedRooms(robot.rooms, language).find(
-          (item) => String(item.id) === String(params.room),
-        );
-        return done.room(room ? room.name : params.room);
-      }
-      return done[actionKey === 'clean_selection' ? 'selection' : actionKey];
+    return {
+      en: widgetMessage(actionKey, params, robot, 'en'),
+      fr: widgetMessage(actionKey, params, robot, 'fr'),
     };
-    return { en: message('en'), fr: message('fr') };
   }
 
   /**
@@ -1190,18 +1220,17 @@ export class DreameIntegration {
   }
 
   /**
-   * States were published: nudge the widgets that show them.
-   * @param {Array<string>} externalIds the features whose state changed
+   * Properties changed: nudge the widgets that show them.
+   * @param {Array<string>} keys the `siid.piid` keys that changed
    */
-  nudgeWidgets(externalIds) {
-    const prefix = `:${FEATURE_CODES.CONSUMABLE_PREFIX}`;
-    const wear = externalIds.some((id) => id.includes(prefix));
-    const other = externalIds.some((id) => !id.includes(prefix));
-    if (other) {
+  nudgeWidgets(keys) {
+    const wearKeys = new Set(CONSUMABLES.map((consumable) => consumable.prop));
+    if (keys.some((key) => !wearKeys.has(key))) {
       this.nudge(WIDGET.ROBOT);
       this.nudge(WIDGET.QUICK_CLEAN);
+      this.nudge(WIDGET.ROBOT_SETTING);
     }
-    if (wear) {
+    if (keys.some((key) => wearKeys.has(key))) {
       this.nudge(WIDGET.MAINTENANCE);
       this.nudge(WIDGET.ROBOT);
     }

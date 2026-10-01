@@ -50,7 +50,8 @@ Pour chaque robot de votre compte :
   passages, serpillière.
 - **Consommables** — la durée de vie restante, en pourcentage, de chaque pièce
   d'usure que votre robot suit : brosses, filtre, capteurs, serpillières, et selon
-  la station, filtre du réservoir, détergent, raclette…
+  la station, filtre du réservoir, détergent, raclette… Seules les pièces que votre
+  modèle possède sont proposées, comme dans l'application.
 
 Seules les fonctionnalités que votre robot possède réellement sont proposées.
 
@@ -65,22 +66,32 @@ choisit alors lui-même.
 
 ## Widgets du tableau de bord
 
-Avec Gladys 5.1 ou plus récent, l'intégration propose trois widgets (**Modifier le
+Avec Gladys 5.1 ou plus récent, l'intégration propose quatre widgets (**Modifier le
 tableau de bord** → **Ajouter un widget**). Chacun affiche le robot choisi dans ses
 réglages, ou le premier robot du compte.
 
 - **Robot aspirateur** — le nom et l'état du robot, la batterie en direct, la
-  **carte du logement** (pièces en couleurs, base en vert, robot en blanc), les
-  réglages en cours (mode, aspiration, itinéraire, humidité), le dernier nettoyage,
-  la pièce d'usure la plus usée, et quatre boutons : _Nettoyer_ (ou _Reprendre_),
-  _Pause_, _Base_, _Localiser_. La carte est relue toutes les minutes pendant un
-  nettoyage, toutes les 30 minutes sinon, et seulement quand un tableau de bord
-  l'affiche. Les noms des pièces n'y figurent pas.
+  **carte du logement** (pièces en couleurs, base en vert, robot en blanc, cerclé
+  de vert quand il est sur sa base), les réglages en cours (mode, aspiration,
+  itinéraire, humidité), le dernier nettoyage, la pièce d'usure la plus usée, et
+  quatre boutons : _Nettoyer_ (ou _Reprendre_), _Pause_, _Base_, _Localiser_. La
+  carte est relue toutes les minutes pendant un nettoyage, toutes les 30 minutes
+  sinon, et seulement quand un tableau de bord l'affiche. Les noms des pièces n'y
+  figurent pas.
+- **Réglage du robot** — un réglage de l'application en rangée de boutons, le choix
+  en cours mis en avant, comme dans l'application : **Mode de nettoyage**,
+  **Puissance d'aspiration**, **Puissance d'aspiration maximale**, **Itinéraire**,
+  **Humidité de la serpillière** (_Légèrement sèche_, _Humide_, _Mouillée_) ou
+  **Fréquence de lavage de la serpillière**. Choisissez le réglage dans les
+  paramètres du widget, et ajoutez un widget par réglage à afficher. Les widgets de
+  Gladys n'ont ni liste déroulante ni curseur : le mode _Personnaliser le nettoyage
+  des pièces_, la valeur exacte de l'humidité et l'intervalle de lavage se règlent
+  sur l'appareil.
 - **Nettoyage express** — jusqu'à quatre boutons. Sans réglage, ce sont les
   raccourcis de l'application Dreamehome ; sinon, écrivez dans **Bouton 1** à **4**
   le nom d'un raccourci ou d'une pièce tel que Gladys l'affiche (majuscules et
-  accents indifférents), ou « Nettoyer la sélection ». Pratique sur une tablette
-  murale.
+  accents indifférents), plusieurs pièces séparées par « + » (« Cuisine + Salon »),
+  ou « Nettoyer la sélection ». Pratique sur une tablette murale.
 - **Entretien du robot** — les trois pièces les plus usées en jauges, puis toutes
   les pièces suivies, de la plus usée à la moins usée : en rouge sous 10 %, en
   orange sous 30 %.
