@@ -15,6 +15,9 @@ import {
   settingChoices,
   settingContent,
   stateText,
+  isUnderWay,
+  launchKeyOf,
+  taskKey,
   wearOf,
   widgetCommand,
   widgetLanguage,
@@ -260,19 +263,21 @@ test('quick buttons: nothing to show says how to get some', () => {
   assert.match(find(content, (c) => c.type === 'text' && !c.variant).text, /No shortcut/);
 });
 
-test('a setting as a row of buttons, the current choice lit', () => {
+test('a setting as a row of buttons, the current choice ticked', () => {
   const content = settingContent(view(), { setting: 'cleaning_mode' }, 'fr');
   assert.deepEqual(validateWidgetContent(content), []);
   assert.equal(content.components[0].text, 'Doudou · Mode');
   assert.equal(content.components[1].text, 'Lavage du sol');
   const set = (value) => ({ did: '42', kind: 'set', code: 'cleaning-mode', value });
+  // An icon, never the `primary` style: Gladys paints it like the others in
+  // dark mode.
   assert.deepEqual(
-    buttons(content).map((c) => [c.label, c.style || '-', c.icon, c.action.key, c.action.params]),
+    buttons(content).map((c) => [c.label, c.style, c.icon, c.action.key, c.action.params]),
     [
-      ['Aspiration', '-', 'circle', 'choice_1', set('sweeping')],
-      ['Lavage du sol', 'primary', 'check', 'choice_2', set('mopping')],
-      ['Aspiration + lavage', '-', 'circle', 'choice_3', set('sweeping-and-mopping')],
-      ['Lavage après aspiration', '-', 'circle', 'choice_4', set('mopping-after-sweeping')],
+      ['Aspiration', undefined, 'circle', 'choice_1', set('sweeping')],
+      ['Lavage du sol', undefined, 'check-circle', 'choice_2', set('mopping')],
+      ['Aspiration + lavage', undefined, 'circle', 'choice_3', set('sweeping-and-mopping')],
+      ['Lavage après aspiration', undefined, 'circle', 'choice_4', set('mopping-after-sweeping')],
     ],
   );
   // The cleaning mode, by default.
@@ -291,7 +296,7 @@ test('every setting of the app has its buttons', () => {
       caption: content.components[1].text,
       labels: buttons(content).map((c) => c.label),
       active: buttons(content)
-        .filter((c) => c.style === 'primary')
+        .filter((c) => c.icon === 'check-circle')
         .map((c) => c.label),
     };
   };
@@ -418,4 +423,59 @@ test('texts are cut to the bounds of the core, the language falls back to Englis
   assert.equal(widgetLanguage('de'), 'en');
   assert.equal(widgetLanguage('fr'), 'fr');
   assert.deepEqual(validateWidgetContent(messageContent('Aucun robot')), []);
+});
+
+test('the button of the task under way is ticked, and no button looks selected otherwise', () => {
+  // Nothing runs: no button stands out (a primary first button looked
+  // selected to the tester).
+  const idle = quickContent(view(), { button_1: 'Couloir', button_2: 'Raccourcis3' }, 'fr');
+  assert.deepEqual(
+    buttons(idle).map((c) => [c.label, c.style, c.icon]),
+    [
+      ['Couloir', undefined, undefined],
+      ['Raccourcis3', undefined, undefined],
+    ],
+  );
+  // The robot says Raccourcis3 runs.
+  const shortcuts = [
+    { id: 32, name: 'Couloir', running: false },
+    { id: 34, name: 'Raccourcis3', running: true },
+  ];
+  const running = quickContent(
+    view({ shortcuts }),
+    { button_1: 'Couloir', button_2: 'Raccourcis3' },
+    'fr',
+  );
+  assert.deepEqual(
+    buttons(running).map((c) => [c.label, c.icon]),
+    [
+      ['Couloir', undefined],
+      ['Raccourcis3', 'check-circle'],
+    ],
+  );
+  assert.deepEqual(validateWidgetContent(running), []);
+  // Rooms sent from Gladys, while the robot cleans rooms.
+  const cleaning = view({ lastLaunch: 'rooms:1,2' });
+  cleaning.props.set('4.1', 18);
+  cleaning.props.set('4.7', 1);
+  assert.equal(isUnderWay(cleaning, { kind: 'rooms', rooms: [2, 1] }), true);
+  assert.equal(isUnderWay(cleaning, { kind: 'rooms', rooms: [12] }), false);
+  assert.equal(
+    isUnderWay(view({ lastLaunch: 'rooms:1,2' }), { kind: 'rooms', rooms: [1, 2] }),
+    false,
+  );
+  // The robot widget has no highlighted button either.
+  assert.ok(robotContent(view(), 'fr').components.every((c) => c.style === undefined));
+});
+
+test('the task a command starts, whichever way it was sent', () => {
+  assert.equal(taskKey({ kind: 'shortcut', id: '34' }), 'shortcut:34');
+  assert.equal(taskKey({ kind: 'rooms', rooms: [12, 1] }), 'rooms:1,12');
+  assert.equal(taskKey({ kind: 'selection' }), 'selection');
+  assert.equal(launchKeyOf('shortcut-34', 1), 'shortcut:34');
+  assert.equal(launchKeyOf('shortcut-34', 0), null);
+  assert.equal(launchKeyOf('room', '12'), 'rooms:12');
+  assert.equal(launchKeyOf('room', 'none'), null);
+  assert.equal(launchKeyOf('clean-rooms', 1), 'selection');
+  assert.equal(launchKeyOf('suction', 'turbo'), null);
 });

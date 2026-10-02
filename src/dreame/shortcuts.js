@@ -4,13 +4,16 @@
 // keeps them itself, in property 4.48, as a JSON array whose names are base64:
 //   [{ "id": 32, "name": "Q3Vpc2luZQ==", "state": "0" }, ...]
 // Starting one is a custom start (action 4.1) of kind SHORTCUT with the id as
-// its parameter, which keeps every setting saved in the app.
+// its parameter, which keeps every setting saved in the app. `state` says
+// whether it runs: "0" or "1" while it does, "-1" otherwise (as the Home
+// Assistant integration reads it).
 // -----------------------------------------------------------------------------
 
 /**
  * Parse the SHORTCUTS property.
  * @param {*} value the raw property value (a JSON string)
- * @returns {Array<{ id: number, name: string }>} the shortcuts, app order
+ * @returns {Array<{ id: number, name: string, running: boolean }>} the
+ *   shortcuts, app order
  */
 export function parseShortcuts(value) {
   if (typeof value !== 'string' || !value.trim()) {
@@ -37,7 +40,8 @@ export function parseShortcuts(value) {
     if (typeof entry.name === 'string') {
       name = Buffer.from(entry.name, 'base64').toString('utf8').trim();
     }
-    shortcuts.push({ id, name: name || `#${id}` });
+    const state = entry.state === undefined ? null : String(entry.state);
+    shortcuts.push({ id, name: name || `#${id}`, running: state === '0' || state === '1' });
   }
   return shortcuts;
 }

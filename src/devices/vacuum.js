@@ -17,6 +17,8 @@
 //   - mop-wash-time switch / dimmer              <-> 4.23 byte 1, when washing by time
 //   - route        text / select                 <-> CleanRoute in the settings (4.50)
 //   - battery      battery / integer             <- 3.1
+//   - cleaned-area surface / decimal (m²)        <- 4.3, the current or last clean
+//   - cleaning-time duration / integer (min)     <- 4.2, the current or last clean
 //   - error        text / text                   <- 2.2, described
 //   - room         text / select                 -> segment clean (4.1, kind 18)
 //   - room-pick-<id> switch / binary             <-> the rooms picked, kept by the integration
@@ -35,6 +37,8 @@ import {
 import {
   ACTION,
   BATTERY_BOUNDS,
+  CLEANED_AREA_BOUNDS,
+  CLEANING_TIME_BOUNDS,
   CLEAN_MODE_TO_SUCTION,
   CONSUMABLES,
   CONSUMABLE_BOUNDS,
@@ -285,6 +289,30 @@ export function buildVacuumFeatures(
       unit: DEVICE_FEATURE_UNITS.PERCENT,
       min: BATTERY_BOUNDS.MIN,
       max: BATTERY_BOUNDS.MAX,
+    });
+  }
+  if (has(PROP.CLEANED_AREA)) {
+    add(FEATURE_CODES.CLEANED_AREA, t.features['cleaned-area'], {
+      category: DEVICE_FEATURE_CATEGORIES.SURFACE,
+      type: DEVICE_FEATURE_TYPES.SURFACE.DECIMAL,
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      unit: DEVICE_FEATURE_UNITS.SQUARE_METER,
+      min: CLEANED_AREA_BOUNDS.MIN,
+      max: CLEANED_AREA_BOUNDS.MAX,
+    });
+  }
+  if (has(PROP.CLEANING_TIME)) {
+    add(FEATURE_CODES.CLEANING_TIME, t.features['cleaning-time'], {
+      category: DEVICE_FEATURE_CATEGORIES.DURATION,
+      type: DEVICE_FEATURE_TYPES.DURATION.INTEGER,
+      read_only: true,
+      has_feedback: true,
+      keep_history: true,
+      unit: DEVICE_FEATURE_UNITS.MINUTES,
+      min: CLEANING_TIME_BOUNDS.MIN,
+      max: CLEANING_TIME_BOUNDS.MAX,
     });
   }
   if (has(PROP.ERROR)) {
@@ -579,6 +607,14 @@ export function buildStates(
   const battery = toNumber(props.get(PROP.BATTERY));
   if (battery !== null) {
     push(FEATURE_CODES.BATTERY, clamp(battery, BATTERY_BOUNDS));
+  }
+  const area = toNumber(props.get(PROP.CLEANED_AREA));
+  if (area !== null && area >= 0) {
+    push(FEATURE_CODES.CLEANED_AREA, area);
+  }
+  const minutes = toNumber(props.get(PROP.CLEANING_TIME));
+  if (minutes !== null && minutes >= 0) {
+    push(FEATURE_CODES.CLEANING_TIME, minutes);
   }
   const error = toNumber(props.get(PROP.ERROR));
   if (error !== null) {

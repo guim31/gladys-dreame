@@ -69,13 +69,15 @@ test('the state numbering follows the model and its firmware build', () => {
 test('shortcuts are read from the robot property, names decoded', () => {
   const value = JSON.stringify([
     { id: 32, name: Buffer.from('Après le dîner').toString('base64'), state: '-1' },
-    { id: 33, name: '' },
+    { id: 33, name: '', state: '1' }, // running
+    { id: 34, name: Buffer.from('Cuisine').toString('base64'), state: '0' }, // running too
     { id: 32, name: 'ZHVw' }, // duplicate id: ignored
     { name: 'bm8gaWQ=' }, // no id: ignored
   ]);
   assert.deepEqual(parseShortcuts(value), [
-    { id: 32, name: 'Après le dîner' },
-    { id: 33, name: '#33' },
+    { id: 32, name: 'Après le dîner', running: false },
+    { id: 33, name: '#33', running: true },
+    { id: 34, name: 'Cuisine', running: true },
   ]);
   assert.deepEqual(parseShortcuts(''), []);
   assert.deepEqual(parseShortcuts('not json'), []);

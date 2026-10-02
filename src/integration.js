@@ -53,7 +53,9 @@ import {
   messageContent,
   quickContent,
   robotContent,
+  launchKeyOf,
   settingContent,
+  taskKey,
   widgetCommand,
   widgetLanguage,
   widgetMessage,
@@ -767,8 +769,12 @@ export class DreameIntegration {
     }
     if (shortcutsChanged) {
       const shortcuts = parseShortcuts(robot.props.get(PROP.SHORTCUTS));
-      if (JSON.stringify(shortcuts) !== JSON.stringify(robot.shortcuts)) {
-        robot.shortcuts = shortcuts;
+      // A shortcut that starts or ends only changes its `running` flag: the
+      // devices are published again for a shortcut added, removed or renamed.
+      const shape = (list) => JSON.stringify(list.map(({ id, name }) => [id, name]));
+      const renamed = shape(shortcuts) !== shape(robot.shortcuts);
+      robot.shortcuts = shortcuts;
+      if (renamed) {
         robot.capabilities.add(PROP.SHORTCUTS);
         this.saveRobot(robot);
         this.publishDevices().catch((err) => this.logger.warn(err.message));
@@ -905,6 +911,8 @@ export class DreameIntegration {
       picks: robot.picks,
     });
     await this.execute(robot, code, command);
+    // What a quick button lights up while it runs.
+    robot.lastLaunch = launchKeyOf(code, value) || robot.lastLaunch;
   }
 
   /**
@@ -1028,6 +1036,7 @@ export class DreameIntegration {
    * @param {Iterable<Array>} entries `[key, value]` pairs
    */
   applyProps(robot, entries) {
+    const stateBefore = gladysStateOf(robot.props, robot.newNumbering);
     const changed = [];
     for (const [key, value] of entries) {
       const before = JSON.stringify(robot.props.get(key));
@@ -1037,6 +1046,11 @@ export class DreameIntegration {
       }
     }
     if (changed.length > 0 && robot.capabilities) {
+      if (gladysStateOf(robot.props, robot.newNumbering) !== stateBefore) {
+        // The robot left, came back to or reached its base: the map a
+        // dashboard shows is re-read at once, not 30 minutes later.
+        robot.mapTriedAt = 0;
+      }
       this.nudgeWidgets(changed);
     }
   }
@@ -1072,6 +1086,7 @@ export class DreameIntegration {
       rooms: robot.rooms,
       shortcuts: robot.shortcuts,
       picks: robot.picks,
+      lastLaunch: robot.lastLaunch || null,
     };
   }
 
@@ -1122,6 +1137,7 @@ export class DreameIntegration {
         FEATURE_CODES.CLEAN_ROOMS,
         buildRoomsClean(command.rooms, robot.props, robot.mopping),
       );
+      robot.lastLaunch = taskKey({ kind: 'rooms', rooms: command.rooms });
     } else {
       await this.runCommand(robot, command.code, command.value);
     }

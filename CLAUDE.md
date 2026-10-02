@@ -16,11 +16,18 @@ Guilhem n'a pas de Dreame. Tout retour réel vient du testeur **Chris75** (`drea
 firmware `4.3.9_1771`), sur le fil https://community.gladysassistant.com/t/10910 (lisible en JSON
 par `/t/10910.json`). Pat, sur le fil 10713, a aussi un laveur Dreame.
 
-Validé chez Chris75 jusqu'à la 0.3.0 : connexion, MQTT, état, retour base, localiser,
+Validé chez Chris75 jusqu'à la 0.4.0 : connexion, MQTT, état, retour base, localiser,
 consommables, batterie, raccourcis, pause/reprise, pièces, tous les réglages serpillière (mode,
 max, humidité, fréquence, itinéraire, sélection multi-pièces), widgets, carte juste avec la
-position du robot suivie en direct. **À confirmer sur la 0.4.0** : clés d'action de widget
-numérotées, pièces d'usure filtrées par modèle, widget `robot_setting`.
+position du robot suivie en direct, clés d'action de widget numérotées, boutons multi-pièces,
+pièces d'usure filtrées par modèle.
+
+Le widget `robot_setting` (un réglage par widget, en boutons) a été **jugé inadapté** par Chris75
+le 02/10/2026 : trop de place, pas de liste ni de curseur, et la boîte « Appareils » du cœur fait
+mieux pour les réglages. Sa clé est publiée, donc gardée ; la documentation renvoie les réglages
+vers la boîte Appareils. **À confirmer sur la version suivante** : aucun bouton en style
+`primary` (invisible en mode sombre), coche sur la tâche en cours, fonctionnalités « Dernier
+nettoyage - surface / durée », carte relue quand l'état du robot change.
 
 ## Protocole
 
@@ -56,6 +63,9 @@ numérotées, pièces d'usure filtrées par modèle, widget `robot_setting`.
 - Carte dessinée sans dépendance (`src/dreame/render.js`, PNG palette écrit à la main), relue
   seulement quand un tableau de bord la demande : 50 s si le robot roule, 30 min sinon.
 - « Cartographier » est volontairement refusé : la cartographie rapide peut écraser la carte.
+- Un raccourci en cours a `state` « 0 » ou « 1 » dans 4.48 (« -1 » sinon), comme le lit Home
+  Assistant : seul ce drapeau change quand il démarre ou s'arrête, les appareils découverts ne
+  sont republiés que si un raccourci est ajouté, retiré ou renommé.
 
 ## Pièges déjà payés
 
@@ -132,8 +142,13 @@ Vérifiés dans le code du cœur ou payés sur une intégration publiée. Ils va
   signale ; `validateWidgetContent` est exporté pour les tests.
 - Le cœur **jette un bouton dont la clé d'action est déjà prise** : clés numérotées, ce que fait
   le bouton dans ses paramètres.
-- Le vocabulaire des widgets n'a ni liste ni curseur. Seul un bouton `device_feature` numérique
-  a un état actif natif.
+- Le vocabulaire des widgets n'a ni liste ni curseur, **par choix** : la spec du cœur
+  (`dashboard-widgets.md`, « Out of scope ») réserve les réglages aux boîtes d'appareils. Ne pas
+  essayer de les recréer en boutons pour tous les réglages : le testeur préfère la boîte
+  « Appareils ». Seul un bouton `device_feature` numérique a un état actif natif.
+- **En mode sombre, le style `primary` d'un bouton de widget ne se voit pas** : la règle
+  `.dark-mode .button` du cœur écrase le fond de `.buttonPrimary`, sans règle sombre pour lui (ni
+  pour l'état actif). Signaler un choix courant par l'icône (`check-circle`), jamais par le style.
 - Dans une grille `card-list`, la `date` s'affiche **à la place** du sous-titre.
 - `onWidgetAction` fait recharger le widget dès la résolution, alors que `requestWidgetRefresh`
   est plafonné à un appel toutes les 10 s.

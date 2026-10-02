@@ -36,6 +36,8 @@ For each robot of your account:
   the app does.
 - **Battery**, and **Error**: the message of the robot in plain words ("Main brush
   tangled", "Clean water tank empty"...), "No error" otherwise.
+- **Last clean - area** and **Last clean - duration** — in m² and minutes, those of
+  the clean under way while it runs, with their history.
 - **Room to clean** — the rooms of your robot's map; picking one starts cleaning
   it, and the list goes back to "—" once the room is done.
 - **Several rooms** — a **Selection** switch per room, and the **Clean the
@@ -63,6 +65,11 @@ With Gladys 5.1 or later, the integration offers four widgets (**Edit the
 dashboard** → **Add a widget**). Each shows the robot picked in its settings, or
 the first robot of the account.
 
+> Gladys widgets are read and tapped: they have, by design, no dropdown nor
+> slider. For **every setting** with its lists and sliders, add a **Devices** box
+> with the setting features of the robot (mode, suction, max suction, route,
+> wetness, washing frequency and intervals) next to the **Robot vacuum** widget.
+
 - **Robot vacuum** — the name and state of the robot, the live battery, the **map
   of the home** (rooms in colors, dock in green, robot in white, ringed in green
   when on its dock), the current settings (mode, suction, route, wetness), the
@@ -70,18 +77,17 @@ the first robot of the account.
   _Pause_, _Dock_, _Locate_. The map is read again every minute while cleaning,
   every 30 minutes otherwise, and only while a dashboard shows it. Room names are
   not written on it.
-- **Robot setting** — one setting of the app as a row of buttons, the current
-  choice lit, as in the app: **Cleaning mode**, **Suction power**, **Max suction
+- **Robot setting** — a single setting as big buttons, the current choice ticked,
+  at hand on a tablet: **Cleaning mode**, **Suction power**, **Max suction
   power**, **Cleaning route**, **Mop wetness** (_Slightly dry_, _Damp_, _Wet_) or
-  **Mop washing frequency**. Pick the setting in the widget settings, and add one
-  widget per setting to show. Gladys widgets have no dropdown nor slider: the
-  _Customize room cleaning_ mode, the exact wetness and the washing interval are
-  set on the device.
+  **Mop washing frequency**, picked in the widget settings. The _Customize room
+  cleaning_ mode, the exact wetness and the washing interval are set in the
+  **Devices** box.
 - **Quick clean** — up to four buttons. Without settings, the shortcuts of the
   Dreamehome app; otherwise, write in **Button 1** to **4** the name of a
   shortcut or a room as Gladys shows it (case and accents do not matter), several
-  rooms joined by "+" ("Kitchen + Living room"), or "Clean the selection". Handy
-  on a wall tablet.
+  rooms joined by "+" ("Kitchen + Living room"), or "Clean the selection". The
+  button of the task under way is ticked. Handy on a wall tablet.
 - **Robot maintenance** — the three most worn parts as gauges, then every part
   tracked, the most worn first: red under 10 %, orange under 30 %.
 

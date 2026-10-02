@@ -372,13 +372,15 @@ test('every feature is valid for Gladys, NOT NULL columns included', () => {
     assert.equal(feature.selector, undefined);
   }
   const codes = features.map((feature) => feature.external_id.split(':').pop());
-  assert.deepEqual(codes.slice(0, 13), [
+  assert.deepEqual(codes.slice(0, 15), [
     'state',
     'run-mode',
     'dock',
     'pause',
     'suction',
     'battery',
+    'cleaned-area',
+    'cleaning-time',
     'error',
     'room',
     'room-pick-3',
@@ -545,4 +547,31 @@ test('a wear part the model does not have is not published, even when answered',
   const withWheels = modelCapabilities('dreame.vacuum.r2416', '4.3.9_1');
   assert.equal(withWheels.flags.has('wheel'), false);
   assert.deepEqual(codes(null), ['consumable-main-brush', 'consumable-filter', 'consumable-wheel']);
+});
+
+test('the current (or last) clean is published, with its history', () => {
+  const features = buildVacuumFeatures(ids, { capabilities: new Set(['4.2', '4.3']) }, 'fr');
+  const byCode = new Map(features.map((f) => [f.external_id.split(':').pop(), f]));
+  const area = byCode.get('cleaned-area');
+  assert.deepEqual(
+    [area.name, area.category, area.type, area.unit, area.read_only, area.keep_history],
+    ['Dernier nettoyage - surface', 'surface', 'decimal', 'square-meter', true, true],
+  );
+  const time = byCode.get('cleaning-time');
+  assert.deepEqual(
+    [time.name, time.category, time.type, time.unit, time.read_only, time.keep_history],
+    ['Dernier nettoyage - durée', 'duration', 'integer', 'minutes', true, true],
+  );
+  const states = buildStates(
+    ids,
+    props([
+      ['4.2', 16],
+      ['4.3', 15],
+    ]),
+    { newNumbering: true, language: 'fr' },
+  );
+  const state = (code) =>
+    states.find((s) => s.device_feature_external_id === ids.feature(code)).state;
+  assert.equal(state('cleaned-area'), 15);
+  assert.equal(state('cleaning-time'), 16);
 });

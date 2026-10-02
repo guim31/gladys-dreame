@@ -8,9 +8,10 @@
 //                     several rooms (named in the widget settings), for a wall
 //                     tablet;
 //   - robot_setting : ONE setting of the app (cleaning mode, suction, route,
-//                     wetness…) as a row of buttons, the current choice lit, as
-//                     the app shows it — the widget vocabulary has no select
-//                     nor slider;
+//                     wetness…) as a row of buttons, the current choice ticked,
+//                     for a wall tablet. Gladys keeps input controls (selects,
+//                     sliders) out of widgets on purpose: every setting with
+//                     its list or slider is in the device box of the core;
 //   - maintenance   : the wear of each part, the most worn first.
 //
 // A widget shows the robot picked in its settings, else the first one. The
@@ -22,7 +23,9 @@
 //
 // Gladys renders at most 8 components, 2 of them texts and 4 of them buttons,
 // and drops a button whose action key another one already uses: the keys are
-// numbered, what a button does travels in its params.
+// numbered, what a button does travels in its params. A current choice or a
+// task under way is shown by its icon, never by the `primary` style: in dark
+// mode Gladys paints a primary button like the others.
 // -----------------------------------------------------------------------------
 
 import { WIDGET_COLORS } from '@gladysassistant/integration-sdk';
@@ -30,14 +33,23 @@ import { WIDGET_COLORS } from '@gladysassistant/integration-sdk';
 import {
   CLEANING_MODES,
   CONSUMABLES,
+  DREAME_STATUS,
   FEATURE_CODES,
   PROP,
+  ROOM_SELECTION_NONE,
   ROUTES,
   SUCTION_LEVELS,
   VACUUM_CLEANER_STATE,
   WASH_FREQUENCIES,
 } from './constants.js';
-import { gladysStateOf, maxSuctionOf, normalizeState, routeOf } from './devices/vacuum.js';
+import {
+  gladysStateOf,
+  hasTask,
+  isRoomCleaning,
+  maxSuctionOf,
+  normalizeState,
+  routeOf,
+} from './devices/vacuum.js';
 import { namedRooms } from './dreame/map.js';
 import { tracksConsumable } from './dreame/models.js';
 import { cleaningModeOf, routeAllowed, washFrequencyOf, washValueOf } from './dreame/mopping.js';
@@ -82,6 +94,8 @@ const WETNESS_PRESETS = [
   { value: 27, upTo: 32 },
 ];
 const MAX_BUTTONS = 4;
+// The icon of the current choice, or of the task under way.
+const CURRENT_ICON = 'check-circle';
 
 // Wear thresholds, in percent left.
 const WORN = 10;
@@ -155,11 +169,10 @@ export function messageContent(text) {
   return { version: 1, ttl_seconds: 300, components: [{ type: 'text', text: fit(text, 300) }] };
 }
 
-function actionButton(label, key, params, { style = null, icon = null } = {}) {
+function actionButton(label, key, params, icon = null) {
   return {
     type: 'button',
     label: fit(label, 24),
-    ...(style ? { style } : {}),
     ...(icon ? { icon } : {}),
     action: { key, params },
   };
@@ -284,12 +297,7 @@ export function robotContent(view, language) {
     locate: w.locate,
   };
   for (const [key, button] of Object.entries(ROBOT_BUTTONS)) {
-    components.push(
-      actionButton(labels[key], key, params, {
-        style: key === 'start' ? 'primary' : null,
-        icon: button.icon,
-      }),
-    );
+    components.push(actionButton(labels[key], key, params, button.icon));
   }
   const running =
     state === VACUUM_CLEANER_STATE.RUNNING || state === VACUUM_CLEANER_STATE.RETURNING_TO_DOCK;
@@ -393,12 +401,76 @@ export function quickContent(view, settings, language) {
   buttons.forEach((entry, index) => {
     // Numbered keys: Gladys drops a button whose key another one uses.
     components.push(
-      actionButton(entry.label, `quick_${index + 1}`, entry.params, {
-        style: index === 0 ? 'primary' : null,
-      }),
+      actionButton(
+        entry.label,
+        `quick_${index + 1}`,
+        entry.params,
+        isUnderWay(view, entry.params) ? CURRENT_ICON : null,
+      ),
     );
   });
   return { version: 1, ttl_seconds: 300, components };
+}
+
+/**
+ * The key of a task a button starts, to tell when it is the one under way.
+ * @param {object} params the button params (`kind`, `id` or `rooms`)
+ * @returns {string|null} the key
+ */
+export function taskKey(params) {
+  if (params.kind === 'shortcut') {
+    return `shortcut:${Number(params.id)}`;
+  }
+  if (params.kind === 'rooms') {
+    return `rooms:${[...params.rooms]
+      .map(Number)
+      .sort((a, b) => a - b)
+      .join(',')}`;
+  }
+  return params.kind === 'selection' ? 'selection' : null;
+}
+
+/**
+ * The key of the task a feature command starts (see taskKey()), from Gladys
+ * or from a widget.
+ * @param {string} code the feature code
+ * @param {*} value the value
+ * @returns {string|null} the key, null for a command that starts no such task
+ */
+export function launchKeyOf(code, value) {
+  if (code.startsWith(FEATURE_CODES.SHORTCUT_PREFIX) && Number(value) === 1) {
+    return taskKey({ kind: 'shortcut', id: code.slice(FEATURE_CODES.SHORTCUT_PREFIX.length) });
+  }
+  if (code === FEATURE_CODES.ROOM && value !== ROOM_SELECTION_NONE) {
+    return taskKey({ kind: 'rooms', rooms: [value] });
+  }
+  if (code === FEATURE_CODES.CLEAN_ROOMS && Number(value) === 1) {
+    return taskKey({ kind: 'selection' });
+  }
+  return null;
+}
+
+/**
+ * Whether the task a quick button starts is the one under way: a shortcut the
+ * robot says it runs, or the rooms last sent while the robot cleans rooms.
+ * @param {object} view the robot (`props`, `shortcuts`, `lastLaunch`)
+ * @param {object} params the button params
+ * @returns {boolean} true while that task runs
+ */
+export function isUnderWay(view, params) {
+  const launched = view.lastLaunch === taskKey(params);
+  if (params.kind === 'shortcut') {
+    const shortcut = (view.shortcuts || []).find((item) => item.id === Number(params.id));
+    if (shortcut && shortcut.running) {
+      return true;
+    }
+    return (
+      launched &&
+      Number(view.props.get(PROP.STATUS)) === DREAME_STATUS.SHORTCUT &&
+      hasTask(view.props)
+    );
+  }
+  return launched && isRoomCleaning(view.props);
 }
 
 /**
@@ -547,7 +619,7 @@ export function settingContent(view, settings, language) {
         choice.label,
         `choice_${index + 1}`,
         { did: view.did, kind: 'set', code: SETTINGS[setting], value: choice.value },
-        { style: choice.active ? 'primary' : null, icon: choice.active ? 'check' : 'circle' },
+        choice.active ? CURRENT_ICON : 'circle',
       ),
     );
   });

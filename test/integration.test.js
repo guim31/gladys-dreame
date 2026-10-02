@@ -262,7 +262,9 @@ test('a linked account, from discovery to commands', async (t) => {
     });
     assert.deepEqual(validateWidgetContent(suction), []);
     const quiet = suction.components.find((c) => c.type === 'button' && c.label === 'Silencieux');
-    assert.notEqual(quiet.style, 'primary');
+    // the current choice is ticked (a style would not show in dark mode)
+    assert.equal(quiet.icon, 'circle');
+    assert.equal(quiet.style, undefined);
     const said = await dreame.widgetAction(quiet.action.key, quiet.action.params);
     assert.deepEqual(said, { en: 'Suction: Quiet', fr: 'Aspiration : Silencieux' });
     assert.deepEqual(fake.state.commands.at(-1).params, [
@@ -273,12 +275,22 @@ test('a linked account, from discovery to commands', async (t) => {
       language: 'fr',
     });
     assert.equal(
-      after.components.find((c) => c.type === 'button' && c.label === 'Silencieux').style,
-      'primary',
+      after.components.find((c) => c.type === 'button' && c.label === 'Silencieux').icon,
+      'check-circle',
     );
     // back to the suction the next tests expect
     const max = after.components.find((c) => c.type === 'button' && c.label === 'Max');
     await dreame.widgetAction(max.action.key, max.action.params);
+
+    // the robot leaving or reaching its base: the map is re-read at once
+    const robot = dreame.robots.get(ROBOT.did);
+    robot.mapTriedAt = Date.now();
+    dreame.applyProps(robot, [['2.1', 5]]);
+    assert.equal(robot.mapTriedAt, 0);
+    dreame.applyProps(robot, [['2.2', 0]]);
+    robot.mapTriedAt = 1;
+    dreame.applyProps(robot, [['3.1', 99]]);
+    assert.equal(robot.mapTriedAt, 1, 'a battery change keeps the map');
 
     // a state change nudges the widgets that show it
     await waitUntil(() => gladys.widgetRefreshes.includes('robot'), 'a widget nudge');

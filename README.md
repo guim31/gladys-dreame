@@ -49,6 +49,8 @@ Each robot exposes:
 | Mop washing: every (m²), (min) | `switch` / `dimmer`              | 4.23 byte 1, for the frequency it belongs to         |
 | Cleaning route                 | `text` / `select`                | `CleanRoute` in the settings list 4.50 (one key set) |
 | Battery                        | `battery` / `integer`            | 3.1                                                  |
+| Last clean - area              | `surface` / `decimal` (m²)       | 4.3, the clean under way while it runs; history kept |
+| Last clean - duration          | `duration` / `integer` (min)     | 4.2, the clean under way while it runs; history kept |
 | Error                          | `text` / `text`                  | 2.2, described in the configured language            |
 | Room to clean                  | `text` / `select`                | segment clean: action 4.1, kind 18                   |
 | Selection - _room_             | `switch` / `binary`              | kept by the integration (`/data/robots.json`)        |
@@ -131,7 +133,7 @@ position otherwise.
 | ----------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
 | Robot vacuum      | `robot`         | name and state, live battery, the map, settings and last clean in a status list, Clean/Pause/Dock/Locate               |
 | Quick clean       | `quick_clean`   | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings ("Kitchen + Living room" for several) |
-| Robot setting     | `robot_setting` | one setting (mode, suction, max suction, route, wetness, mop washing) as up to 4 buttons, the current choice lit       |
+| Robot setting     | `robot_setting` | one setting (mode, suction, max suction, route, wetness, mop washing) as up to 4 buttons, the current choice ticked    |
 | Robot maintenance | `maintenance`   | the 3 most worn parts as gauges, every part in a status list                                                           |
 
 Gladys renders at most 8 components per widget, 2 of them texts and 4 of them
@@ -142,12 +144,26 @@ wear gauges bind the device features when the robot was added, so they move live
 uses**: the keys are numbered (`quick_1`…, `choice_1`…) and what a button does
 travels in its params, checked against a whitelist (`widgetCommand()`).
 
-The widget vocabulary has no select nor slider: a setting is a row of up to four
-buttons, the robot's current choice styled `primary` with a check icon — the
-segmented buttons of the app. A wetness button sets the middle of its range of the
-app's slider (5, 16, 27), as the Home Assistant integration does. The widgets are
-nudged whenever a property they show changes (`applyProps()`), whether or not the
-robot was added to Gladys.
+The widget vocabulary has no select nor slider, **on purpose**: the spec of
+Gladys (`docs/specs/external-integrations/capabilities/dashboard-widgets.md`, "Out
+of scope") keeps widgets read-and-tap, settings being device features controlled
+through the core device boxes. A setting widget is therefore a row of up to four
+buttons, the robot's current choice ticked; the full set of settings, with their
+lists and sliders, lives in a Devices box next to the robot widget (the first
+tester's verdict). A wetness button sets the middle of its range of the app's
+slider (5, 16, 27), as the Home Assistant integration does.
+
+**A current choice, or the task under way, is shown by its icon
+(`check-circle`), never by the `primary` style**: in dark mode Gladys paints a
+primary button like the others (its `.dark-mode .button` rule outweighs
+`.buttonPrimary`, and there is no dark rule for it), so the tester saw nothing.
+A quick button is ticked while its task runs: a shortcut the robot reports running
+(`state` "0" or "1" in 4.48), or the rooms last sent while the robot cleans rooms.
+
+The widgets are nudged whenever a property they show changes (`applyProps()`),
+whether or not the robot was added to Gladys. When the robot's state changes (it
+leaves, returns to or reaches its base), the map is re-read at the next request:
+otherwise a docked robot kept its last position on the way back for half an hour.
 
 **The map image** is drawn by the integration (`src/dreame/render.js`, no image
 library: a palette PNG written by hand, zlib doing the compression). Each cell of

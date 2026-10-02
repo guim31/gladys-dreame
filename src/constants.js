@@ -399,6 +399,8 @@ export const FEATURE_CODES = {
   PAUSE: 'pause',
   LOCATE: 'locate',
   BATTERY: 'battery',
+  CLEANED_AREA: 'cleaned-area',
+  CLEANING_TIME: 'cleaning-time',
   ERROR: 'error',
   ROOM: 'room',
   ROUTE: 'route',
@@ -416,6 +418,10 @@ export const FEATURE_CODES = {
 };
 
 export const BATTERY_BOUNDS = { MIN: 0, MAX: 100 };
+// The current (or last) clean: square metres and minutes. Display bounds only:
+// a whole floor, a whole day.
+export const CLEANED_AREA_BOUNDS = { MIN: 0, MAX: 1000 };
+export const CLEANING_TIME_BOUNDS = { MIN: 0, MAX: 1440 };
 export const CONSUMABLE_BOUNDS = { MIN: 0, MAX: 100 };
 export const ROOM_SELECTION_NONE = 'none';
 
