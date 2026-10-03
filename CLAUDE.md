@@ -87,7 +87,9 @@ d'issue.
   interrupteur. Le `run-mode` (scènes, boîte Appareils) nettoie toujours tout le logement : une
   scène ne doit pas dépendre d'une sélection oubliée.
 - Nettoyage express : **4 boutons au plus**, règle du cœur (une rangée de pastilles) ; pour
-  davantage, un second widget dont on nomme les boutons.
+  davantage, un second widget dont on nomme les boutons. Un nom qui ne correspond à rien est
+  signalé avec la liste des noms reconnus (`knownNames()`), faute de pouvoir les proposer en liste
+  (voir les pièges du cœur).
 - Un raccourci en cours a `state` « 0 » ou « 1 » dans 4.48 (« -1 » sinon), comme le lit Home
   Assistant : seul ce drapeau change quand il démarre ou s'arrête, les appareils découverts ne
   sont republiés que si un raccourci est ajouté, retiré ou renommé.
@@ -138,6 +140,11 @@ Vérifiés dans le code du cœur ou payés sur une intégration publiée. Ils va
 - Les **noms de fonctionnalités sont figés à la création**. Et quand une fonctionnalité est seule
   de son type sur l'appareil, le tableau de bord affiche le libellé générique du type à la place
   du nom publié (`getDeviceFeatureName` du front).
+- **Aucune commande d'appareil ne permet un choix multiple** : un `text/select` n'a qu'un choix
+  actif (`AdaptiveOptionControl` : rangée de boutons quand tout tient sur une ligne, liste
+  déroulante sinon). D'où un interrupteur « Sélection » par pièce. Une liste à choix multiples
+  serait une évolution du cœur (proposée le 03/10/2026 ; Matter `ServiceArea` en aurait besoin
+  aussi).
 - Les contrôles `vacuum-cleaner` / `clean-mode` et `run-mode` affichent toujours toutes les valeurs
   et ignorent `supported_options` (GladysAssistant/Gladys#3156). Le `run-mode` de l'intégration
   déclare déjà Repos et Nettoyer : « Cartographier » disparaîtra avec la correction. Les
@@ -171,6 +178,8 @@ Vérifiés dans le code du cœur ou payés sur une intégration publiée. Ils va
 
 **Widgets, déclencheurs, actions de scène (SDK ≥ 0.14, Gladys ≥ 5.1)**
 
+- Un réglage de widget ne propose en liste que les **appareils** de l'intégration (`source:
+"devices"`, seule source dynamique) : ni pièces ni raccourcis à cliquer, ils s'écrivent.
 - Budget du cœur : **8 composants par widget, dont 2 textes au plus**. Le validateur du SDK le
   signale ; `validateWidgetContent` est exporté pour les tests.
 - Le cœur **jette un bouton dont la clé d'action est déjà prise** : clés numérotées, ce que fait

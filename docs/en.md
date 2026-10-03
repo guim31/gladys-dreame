@@ -89,8 +89,9 @@ the first robot of the account.
 - **Quick clean** — up to four buttons. Without settings, the shortcuts of the
   Dreamehome app; otherwise, write in **Button 1** to **4** the name of a
   shortcut or a room as Gladys shows it (case and accents do not matter), several
-  rooms joined by "+" ("Kitchen + Living room"), or "Clean the selection". The
-  button of the task under way is ticked. Handy on a wall tablet. Gladys shows
+  rooms joined by "+" ("Kitchen + Living room"), or "Clean the selection". A
+  name that matches nothing is reported in the widget, with the names it knows.
+  The button of the task under way is ticked. Handy on a wall tablet. Gladys shows
   four buttons at most per widget: for more, add a second **Quick clean** and name
   its buttons.
 - **Robot maintenance** — the three most worn parts as gauges, then every part

@@ -420,6 +420,29 @@ export function quickButtons(view, settings, language) {
 }
 
 /**
+ * The names a quick button recognizes: the rooms as Gladys shows them, the
+ * shortcuts, then "clean the selection" — each once.
+ * @param {object} view the robot, see quickButtons()
+ * @param {string} language `fr` or `en`
+ * @returns {Array<string>} the names
+ */
+export function knownNames(view, language) {
+  const seen = new Set();
+  return [
+    ...namedRooms(view.rooms || [], language).map((room) => room.name),
+    ...(view.shortcuts || []).map((shortcut) => shortcut.name),
+    texts(language).widget.cleanSelection,
+  ].filter((name) => {
+    const key = normalizeName(name);
+    if (!key || seen.has(key)) {
+      return false;
+    }
+    seen.add(key);
+    return true;
+  });
+}
+
+/**
  * The "quick_clean" widget.
  * @param {object} view the robot, see quickButtons()
  * @param {object} settings the widget settings
@@ -440,7 +463,9 @@ export function quickContent(view, settings, language) {
     });
   }
   if (unknown.length > 0) {
-    components.push({ type: 'text', text: fit(w.unknownNames(unknown.join(', ')), 300) });
+    // With the names that work, so a typo is fixed without the app.
+    const known = knownNames(view, language).join(', ');
+    components.push({ type: 'text', text: fit(w.unknownNames(unknown.join(', '), known), 300) });
   } else if (buttons.length === 0) {
     components.push({ type: 'text', text: fit(w.noButton, 300) });
   }

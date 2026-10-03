@@ -110,7 +110,8 @@ const TEXTS = {
       noRobot: "Aucun robot : liez votre compte Dreamehome dans l'intégration Dreame.",
       noButton:
         "Aucun raccourci à afficher : créez-en dans l'application Dreamehome, ou indiquez des noms de pièces dans les réglages du widget.",
-      unknownNames: (names) => `Ni raccourci ni pièce : ${names}.`,
+      unknownNames: (names, known) =>
+        `Ni raccourci ni pièce : ${names}.${known ? ` Noms reconnus : ${known}.` : ''}`,
       noConsumable: "Ce robot ne suit l'usure d'aucune pièce.",
       // The robot_setting widget.
       settingNames: {
@@ -371,7 +372,8 @@ const TEXTS = {
       noRobot: 'No robot: link your Dreamehome account in the Dreame integration.',
       noButton:
         'No shortcut to show: create some in the Dreamehome app, or give room names in the widget settings.',
-      unknownNames: (names) => `Neither a shortcut nor a room: ${names}.`,
+      unknownNames: (names, known) =>
+        `Neither a shortcut nor a room: ${names}.${known ? ` Known names: ${known}.` : ''}`,
       noConsumable: 'This robot tracks the wear of no part.',
       settingNames: {
         cleaning_mode: 'Mode',

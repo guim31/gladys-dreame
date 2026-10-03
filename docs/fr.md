@@ -101,8 +101,9 @@ réglages, ou le premier robot du compte.
   raccourcis de l'application Dreamehome ; sinon, écrivez dans **Bouton 1** à **4**
   le nom d'un raccourci ou d'une pièce tel que Gladys l'affiche (majuscules et
   accents indifférents), plusieurs pièces séparées par « + » (« Cuisine + Salon »),
-  ou « Nettoyer la sélection ». Le bouton de la tâche en cours est coché. Pratique
-  sur une tablette murale. Gladys affiche quatre boutons au plus par widget : pour
+  ou « Nettoyer la sélection ». Un nom qui ne correspond à rien est signalé dans le
+  widget, avec la liste des noms reconnus. Le bouton de la tâche en cours est coché.
+  Pratique sur une tablette murale. Gladys affiche quatre boutons au plus par widget : pour
   en avoir davantage, ajoutez un second **Nettoyage express** et nommez ses
   boutons.
 - **Entretien du robot** — les trois pièces les plus usées en jauges, puis toutes

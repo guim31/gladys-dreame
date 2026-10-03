@@ -17,6 +17,7 @@ import {
   settingContent,
   stateText,
   isUnderWay,
+  knownNames,
   launchKeyOf,
   taskKey,
   wearOf,
@@ -282,10 +283,14 @@ test('quick buttons: shortcuts, rooms and several rooms, by name', () => {
   );
   assert.deepEqual(validateWidgetContent(content), []);
   assert.equal(buttons(content).length, 3);
+  // the names that work come with it, each once: a room and a shortcut both
+  // called "Couloir" make one name
   assert.equal(
     find(content, (c) => c.type === 'text' && !c.variant).text,
-    'Ni raccourci ni pièce : Grenier.',
+    'Ni raccourci ni pièce : Grenier. Noms reconnus : Chambre de Léa, Couloir, Cuisine, Salon, ' +
+      'Personnaliser le nettoyage des pièces, Raccourcis3, Nettoyer la sélection.',
   );
+  assert.deepEqual(knownNames(view({ rooms: [], shortcuts: [] }), 'en'), ['Clean the selection']);
 });
 
 test('quick buttons: "clean the selection" shows what is picked', () => {
