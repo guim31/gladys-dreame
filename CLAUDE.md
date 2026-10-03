@@ -25,9 +25,16 @@ pièces d'usure filtrées par modèle.
 Le widget `robot_setting` (un réglage par widget, en boutons) a été **jugé inadapté** par Chris75
 le 02/10/2026 : trop de place, pas de liste ni de curseur, et la boîte « Appareils » du cœur fait
 mieux pour les réglages. Sa clé est publiée, donc gardée ; la documentation renvoie les réglages
-vers la boîte Appareils. **À confirmer sur la version suivante** : aucun bouton en style
-`primary` (invisible en mode sombre), coche sur la tâche en cours, fonctionnalités « Dernier
-nettoyage - surface / durée », carte relue quand l'état du robot change.
+vers la boîte Appareils. **À confirmer sur la 0.5.0** : aucun bouton en style `primary`
+(invisible en mode sombre), coche sur la tâche en cours, fonctionnalités « Dernier nettoyage -
+surface / durée », carte relue quand l'état du robot change.
+
+Les pièges du cœur rencontrés ici ont été remontés à Pierre-Gilles (sujet
+https://community.gladysassistant.com/t/10940) : il a confirmé et ouvert les issues #3153 à
+#3156, corrigées par son automatisation, sans PR de notre part. Il a accueilli l'idée d'une **carte
+aspirateur dans la boîte Appareils du cœur** (regroupement comme les lumières, PR #2975) : demande
+de fonctionnalité à créer, PR bienvenue. Le libellé générique d'une fonctionnalité seule de son
+type n'a pas eu d'issue.
 
 ## Protocole
 
@@ -113,6 +120,11 @@ Vérifiés dans le code du cœur ou payés sur une intégration publiée. Ils va
 - Les **noms de fonctionnalités sont figés à la création**. Et quand une fonctionnalité est seule
   de son type sur l'appareil, le tableau de bord affiche le libellé générique du type à la place
   du nom publié (`getDeviceFeatureName` du front).
+- Les contrôles `vacuum-cleaner` / `clean-mode` et `run-mode` affichent toujours toutes les valeurs
+  et ignorent `supported_options` (GladysAssistant/Gladys#3156). Le `run-mode` de l'intégration
+  déclare déjà Repos et Nettoyer : « Cartographier » disparaîtra avec la correction. Les
+  `supported_options` d'un appareil créé ne se mettent à jour qu'avec « Mettre à jour », donc lors
+  d'un changement de structure.
 - Depuis Gladys 4.84, un changement de structure fait proposer « Mettre à jour » dans l'onglet
   Découverte (`structure_changed`) : plus besoin de supprimer et recréer l'appareil. Un
   changement des seules `supported_options` ne le déclenche pas.
@@ -134,7 +146,10 @@ Vérifiés dans le code du cœur ou payés sur une intégration publiée. Ils va
   (virgule acceptée).
 - Un champ `secret` dans les `fields` d'une **action** est impossible à remplir (la saisie
   s'efface à chaque frappe), et une action n'applique **aucun `default`**, ni à l'affichage ni
-  côté serveur, tout en exigeant les champs `required` (422).
+  côté serveur, tout en exigeant les champs `required` (422). Issues GladysAssistant/Gladys#3154
+  et #3155, ouvertes par Pierre-Gilles le 03/10/2026 : une fois la correction publiée, le mot de
+  passe pourra repasser en `secret` et la région en `required` avec défaut, en montant
+  `gladys_version` à la version corrigée.
 
 **Widgets, déclencheurs, actions de scène (SDK ≥ 0.14, Gladys ≥ 5.1)**
 
@@ -149,6 +164,7 @@ Vérifiés dans le code du cœur ou payés sur une intégration publiée. Ils va
 - **En mode sombre, le style `primary` d'un bouton de widget ne se voit pas** : la règle
   `.dark-mode .button` du cœur écrase le fond de `.buttonPrimary`, sans règle sombre pour lui (ni
   pour l'état actif). Signaler un choix courant par l'icône (`check-circle`), jamais par le style.
+  Issue GladysAssistant/Gladys#3153.
 - Dans une grille `card-list`, la `date` s'affiche **à la place** du sous-titre.
 - `onWidgetAction` fait recharger le widget dès la résolution, alors que `requestWidgetRefresh`
   est plafonné à un appel toutes les 10 s.

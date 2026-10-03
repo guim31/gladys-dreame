@@ -575,3 +575,17 @@ test('the current (or last) clean is published, with its history', () => {
   assert.equal(state('cleaned-area'), 15);
   assert.equal(state('cleaning-time'), 16);
 });
+
+test('the run mode offers idle and clean only: mapping is refused', () => {
+  const runMode = buildVacuumFeatures(ids, { capabilities: new Set() }, 'fr').find(
+    (feature) => feature.external_id === ids.feature('run-mode'),
+  );
+  // As GladysAssistant/Gladys#3156 expects them: integer values, a label each.
+  assert.deepEqual(runMode.supported_options, [
+    { value: MODE.IDLE, label: 'Repos', sort_order: 0 },
+    { value: MODE.CLEANING, label: 'Nettoyer', sort_order: 1 },
+  ]);
+  // A robot mapping from the app still has a state within the bounds.
+  assert.equal(runMode.max, MODE.MAPPING);
+  assert.throws(() => buildCommand('run-mode', MODE.MAPPING, props([])), UnsupportedCommandError);
+});

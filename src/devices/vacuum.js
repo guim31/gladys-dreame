@@ -189,8 +189,16 @@ export function buildVacuumFeatures(
     type: DEVICE_FEATURE_TYPES.VACUUM_CLEANER.RUN_MODE,
     read_only: false,
     has_feedback: true,
+    // The full range: a robot mapping (started from the app) says so.
     min: VACUUM_CLEANER_MODE.IDLE,
     max: VACUUM_CLEANER_MODE.MAPPING,
+    // But only idle and clean can be chosen: mapping is refused, it may
+    // overwrite the map. Gladys shows only these once its run-mode control
+    // honours supported_options (GladysAssistant/Gladys#3156).
+    supported_options: [
+      { value: VACUUM_CLEANER_MODE.IDLE, label: t.runModes.idle, sort_order: 0 },
+      { value: VACUUM_CLEANER_MODE.CLEANING, label: t.runModes.cleaning, sort_order: 1 },
+    ],
   });
   add(FEATURE_CODES.DOCK, t.features.dock, {
     category: DEVICE_FEATURE_CATEGORIES.VACUUM_CLEANER,

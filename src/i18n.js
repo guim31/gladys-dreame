@@ -58,6 +58,7 @@ const TEXTS = {
       'filter-cleaning': 'Nettoyage du filtre',
     },
     routes: { quick: 'Rapide', standard: 'Standard', intensive: 'Intensif', deep: 'En profondeur' },
+    runModes: { idle: 'Repos', cleaning: 'Nettoyer' },
     suctions: { quiet: 'Silencieux', standard: 'Standard', strong: 'Intense', turbo: 'Max' },
     cleaningModes: {
       sweeping: 'Aspiration',
@@ -320,6 +321,7 @@ const TEXTS = {
       'filter-cleaning': 'Filter cleaning',
     },
     routes: { quick: 'Quick', standard: 'Standard', intensive: 'Intensive', deep: 'Deep' },
+    runModes: { idle: 'Idle', cleaning: 'Clean' },
     suctions: { quiet: 'Quiet', standard: 'Standard', strong: 'Strong', turbo: 'Max' },
     cleaningModes: {
       sweeping: 'Vacuum',
