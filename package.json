@@ -1,6 +1,6 @@
 {
   "name": "gladys-dreame",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "Gladys Assistant integration for the robot vacuums of a Dreamehome account",
   "type": "module",
