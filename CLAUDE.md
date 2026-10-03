@@ -6,9 +6,9 @@ Intégration externe pour [Gladys Assistant](https://gladysassistant.com), bâti
 
 Ce fichier rassemble ce qu'une session de code doit savoir et qui ne se lit pas dans le code : choix de conception, faits vérifiés en réel, pièges déjà payés. Le compléter quand un nouveau piège est découvert.
 
-## État au 02/10/2026
+## État au 03/10/2026
 
-Version 0.4.0 publiée. **Pas de topic** `gladys-assistant-integration` : Guilhem a choisi de
+Version 0.5.0 publiée. **Pas de topic** `gladys-assistant-integration` : Guilhem a choisi de
 l'attendre jusqu'à la v1, et l'intégration s'installe par « Installer depuis GitHub ». Le même
 slug reprendra la main une fois le topic posé.
 
@@ -29,12 +29,20 @@ vers la boîte Appareils. **À confirmer sur la 0.5.0** : aucun bouton en style 
 (invisible en mode sombre), coche sur la tâche en cours, fonctionnalités « Dernier nettoyage -
 surface / durée », carte relue quand l'état du robot change.
 
+Le 03/10/2026, Chris75 a montré son tableau de bord (widget Robot, Nettoyage express, Entretien,
+boîtes Appareils des réglages et de la sélection des pièces) et une maquette plus compacte, reprise
+sur `main` après la 0.5.0 : batterie en tête de la liste du widget Robot au lieu d'une tuile,
+liste de l'usure de toutes les pièces par défaut, bouton _Nettoyer_ qui nettoie la sélection
+quand des pièces sont cochées, « Retour base » au lieu de « Base ».
+
 Les pièges du cœur rencontrés ici ont été remontés à Pierre-Gilles (sujet
 https://community.gladysassistant.com/t/10940) : il a confirmé et ouvert les issues #3153 à
 #3156, corrigées par son automatisation, sans PR de notre part. Il a accueilli l'idée d'une **carte
-aspirateur dans la boîte Appareils du cœur** (regroupement comme les lumières, PR #2975) : demande
-de fonctionnalité à créer, PR bienvenue. Le libellé générique d'une fonctionnalité seule de son
-type n'a pas eu d'issue.
+aspirateur dans la boîte Appareils du cœur** (regroupement comme les lumières, PR #2975) :
+demande de fonctionnalité https://community.gladysassistant.com/t/10945, PR
+GladysAssistant/Gladys#3160 ouverte le 03/10/2026 (une ligne par robot, et un panneau avec ses
+autres fonctionnalités). Le libellé générique d'une fonctionnalité seule de son type n'a pas eu
+d'issue.
 
 ## Protocole
 
@@ -70,6 +78,16 @@ type n'a pas eu d'issue.
 - Carte dessinée sans dépendance (`src/dreame/render.js`, PNG palette écrit à la main), relue
   seulement quand un tableau de bord la demande : 50 s si le robot roule, 30 min sinon.
 - « Cartographier » est volontairement refusé : la cartographie rapide peut écraser la carte.
+- Widget Robot : la batterie ouvre la liste, parce que le cœur range toute tuile (`value`,
+  `gauge`) **au-dessus** de l'image, sur une ligne à elle. La liste montre par défaut l'usure de
+  chaque pièce (maquette du testeur) ; le paramètre `list` = `settings` rend l'ancienne liste
+  (réglages en cours, dernier nettoyage, pièce la plus usée).
+- Son bouton _Nettoyer_ nettoie les pièces cochées (interrupteurs « Sélection ») quand il y en a,
+  décidé **au moment de l'appui** (`cleansSelection()`) : le libellé peut retarder de 10 s sur un
+  interrupteur. Le `run-mode` (scènes, boîte Appareils) nettoie toujours tout le logement : une
+  scène ne doit pas dépendre d'une sélection oubliée.
+- Nettoyage express : **4 boutons au plus**, règle du cœur (une rangée de pastilles) ; pour
+  davantage, un second widget dont on nomme les boutons.
 - Un raccourci en cours a `state` « 0 » ou « 1 » dans 4.48 (« -1 » sinon), comme le lit Home
   Assistant : seul ce drapeau change quand il démarre ou s'arrête, les appareils découverts ne
   sont republiés que si un raccourci est ajouté, retiré ou renommé.

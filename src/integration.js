@@ -49,6 +49,7 @@ import { texts } from './i18n.js';
 import { MESSAGES } from './messages.js';
 import {
   WIDGET,
+  cleansSelection,
   maintenanceContent,
   messageContent,
   quickContent,
@@ -934,6 +935,8 @@ export class DreameIntegration {
         robot.picks.delete(command.room);
       }
       this.saveRobot(robot);
+      // The clean button of the robot widget follows the rooms picked.
+      this.nudge(WIDGET.ROBOT);
       this.nudge(WIDGET.QUICK_CLEAN);
       await this.publishRobot(robot);
       return;
@@ -1104,7 +1107,7 @@ export class DreameIntegration {
     }
     if (key === WIDGET.ROBOT) {
       this.ensureFreshMap(robot);
-      return robotContent(this.viewOf(robot), lang);
+      return robotContent(this.viewOf(robot), lang, settings || {});
     }
     if (key === WIDGET.QUICK_CLEAN) {
       return quickContent(this.viewOf(robot), settings || {}, lang);
@@ -1126,8 +1129,14 @@ export class DreameIntegration {
    * @returns {Promise<object>} the message shown, in both languages
    */
   async widgetAction(actionKey, params = {}) {
-    const command = widgetCommand(actionKey, params);
     const robot = this.robots.get(String(params.did));
+    // The clean button cleans the rooms picked when there are some, as they
+    // are now: the widget may have been drawn before the last switch.
+    const asked =
+      actionKey === 'start' && robot && cleansSelection(robot)
+        ? { ...params, kind: 'selection' }
+        : params;
+    const command = widgetCommand(actionKey, asked);
     if (!command || !robot || !robot.capabilities) {
       throw new Error(`Unknown widget action: ${actionKey}`);
     }
@@ -1142,8 +1151,8 @@ export class DreameIntegration {
       await this.runCommand(robot, command.code, command.value);
     }
     return {
-      en: widgetMessage(actionKey, params, robot, 'en'),
-      fr: widgetMessage(actionKey, params, robot, 'fr'),
+      en: widgetMessage(actionKey, asked, robot, 'en'),
+      fr: widgetMessage(actionKey, asked, robot, 'fr'),
     };
   }
 

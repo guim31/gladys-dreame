@@ -103,7 +103,7 @@ const TEXTS = {
       clean: 'Nettoyer',
       pause: 'Pause',
       resume: 'Reprendre',
-      dock: 'Base',
+      dock: 'Retour base',
       locate: 'Localiser',
       selection: 'Sélection',
       cleanSelection: 'Nettoyer la sélection',

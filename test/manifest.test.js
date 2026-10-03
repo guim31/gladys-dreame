@@ -12,7 +12,7 @@ import { readFile } from 'node:fs/promises';
 import { DEFAULT_REGION, DREAME_REGIONS } from '../src/constants.js';
 import { DEFAULT_LANGUAGE, LANGUAGES } from '../src/i18n.js';
 import { CONFIG_KEYS } from '../src/session.js';
-import { QUICK_BUTTON_SETTINGS, WIDGET } from '../src/widgets.js';
+import { DEFAULT_ROBOT_LIST, QUICK_BUTTON_SETTINGS, ROBOT_LISTS, WIDGET } from '../src/widgets.js';
 
 const read = async (path) => readFile(new URL(path, import.meta.url), 'utf8');
 const manifest = JSON.parse(await read('../gladys-assistant-integration.json'));
@@ -160,4 +160,13 @@ test('the widgets: declared as the code serves them, within the store limits', (
     quick.settings.filter((field) => field.type === 'string').map((field) => field.key),
     QUICK_BUTTON_SETTINGS,
   );
+  // The list of the robot widget offers what the code shows.
+  const list = manifest.widgets
+    .find((widget) => widget.key === WIDGET.ROBOT)
+    .settings.find((field) => field.key === 'list');
+  assert.deepEqual(
+    list.options.map((option) => option.value),
+    ROBOT_LISTS,
+  );
+  assert.equal(list.default, DEFAULT_ROBOT_LIST);
 });

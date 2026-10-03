@@ -129,17 +129,22 @@ position otherwise.
 
 ### Dashboard widgets (Gladys 5.1+)
 
-| Widget            | Key             | Shows                                                                                                                  |
-| ----------------- | --------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Robot vacuum      | `robot`         | name and state, live battery, the map, settings and last clean in a status list, Clean/Pause/Dock/Locate               |
-| Quick clean       | `quick_clean`   | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings ("Kitchen + Living room" for several) |
-| Robot setting     | `robot_setting` | one setting (mode, suction, max suction, route, wetness, mop washing) as up to 4 buttons, the current choice ticked    |
-| Robot maintenance | `maintenance`   | the 3 most worn parts as gauges, every part in a status list                                                           |
+| Widget            | Key             | Shows                                                                                                                                   |
+| ----------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| Robot vacuum      | `robot`         | name and state, the map, a status list (battery and wear, or battery, settings and last clean: `list` setting), Clean/Pause/Dock/Locate |
+| Quick clean       | `quick_clean`   | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings ("Kitchen + Living room" for several)                  |
+| Robot setting     | `robot_setting` | one setting (mode, suction, max suction, route, wetness, mop washing) as up to 4 buttons, the current choice ticked                     |
+| Robot maintenance | `maintenance`   | the 3 most worn parts as gauges, every part in a status list                                                                            |
 
 Gladys renders at most 8 components per widget, 2 of them texts and 4 of them
 buttons: the name and the state share the heading. The buttons are widget actions
-carrying the robot id (they work for a robot not added to Gladys); the battery and
-wear gauges bind the device features when the robot was added, so they move live.
+carrying the robot id (they work for a robot not added to Gladys); the wear gauges
+bind the device features when the robot was added, so they move live. The battery
+of the robot widget opens its status list rather than sitting in a tile: Gladys
+renders tiles above the image, on a row of their own (the tester's mock-up). Its
+_Clean_ button cleans the rooms picked (**Selection** switches) when there are
+some, decided when it is pressed (`cleansSelection()`), and reads _Clean the
+selection_ then; a pick nudges the widget.
 **Gladys drops a button whose action key another button of the widget already
 uses**: the keys are numbered (`quick_1`…, `choice_1`…) and what a button does
 travels in its params, checked against a whitelist (`widgetCommand()`).

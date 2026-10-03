@@ -12,6 +12,7 @@ import {
   quickButtons,
   quickContent,
   robotContent,
+  cleansSelection,
   settingChoices,
   settingContent,
   stateText,
@@ -91,13 +92,12 @@ const types = (content) => content.components.map((component) => component.type)
 const find = (content, predicate) => content.components.find(predicate);
 const buttons = (content) => content.components.filter((c) => c.type === 'button');
 
-test('the robot widget: state, battery, map, settings and buttons, all valid', () => {
+test('the robot widget: state, map, battery and wear, buttons, all valid', () => {
   const content = robotContent(view(), 'fr');
   assert.deepEqual(validateWidgetContent(content), []);
-  // The 8 components Gladys renders at most.
+  // No tile: Gladys would set it above the map, on a row of its own.
   assert.deepEqual(types(content), [
     'text',
-    'value',
     'image',
     'status',
     'button',
@@ -106,19 +106,20 @@ test('the robot widget: state, battery, map, settings and buttons, all valid', (
     'button',
   ]);
   assert.equal(content.components[0].text, 'Doudou · Charge terminée');
-  const battery = find(content, (c) => c.type === 'value');
-  assert.deepEqual([battery.label, battery.value, battery.unit], ['Batterie', 100, '%']);
   assert.equal(find(content, (c) => c.type === 'image').key, 'map-0123456789abcdef');
   assert.deepEqual(
-    find(content, (c) => c.type === 'status').items.map((item) => [item.label, item.value]),
+    find(content, (c) => c.type === 'status').items.map((item) => [
+      item.label,
+      item.value,
+      item.color,
+    ]),
     [
-      ['Mode', 'Lavage du sol'],
-      ['Aspiration', 'Standard'],
-      ['Itinéraire', 'Standard'],
-      ['Humidité', '25 / 32'],
-      ['Dernier nettoyage', '35 m² · 42 min'],
-      // the wheels its model does not have are not a worn part
-      ['Usure : Filtre', '3 %'],
+      ['Batterie', '100 %', 'success'],
+      // the most worn first; the wheels its model does not have are not a part
+      ['Filtre', '3 %', 'danger'],
+      ['Brosse latérale', '14 %', 'warning'],
+      ['Brosse principale', '69 %', 'success'],
+      ['Capteurs', '83 %', 'success'],
     ],
   );
   assert.deepEqual(
@@ -126,7 +127,7 @@ test('the robot widget: state, battery, map, settings and buttons, all valid', (
     [
       ['Nettoyer', 'play', 'start', '42'],
       ['Pause', 'pause', 'pause', '42'],
-      ['Base', 'home', 'dock', '42'],
+      ['Retour base', 'home', 'dock', '42'],
       ['Localiser', 'map-pin', 'locate', '42'],
     ],
   );
@@ -141,23 +142,66 @@ test('the robot widget: state, battery, map, settings and buttons, all valid', (
   assert.equal(busy.components[0].text, 'Doudou · Vacuuming');
 });
 
+test('the robot widget may list the settings and the last clean instead', () => {
+  const content = robotContent(view(), 'fr', { list: 'settings' });
+  assert.deepEqual(validateWidgetContent(content), []);
+  assert.deepEqual(
+    find(content, (c) => c.type === 'status').items.map((item) => [item.label, item.value]),
+    [
+      ['Batterie', '100 %'],
+      ['Mode', 'Lavage du sol'],
+      ['Aspiration', 'Standard'],
+      ['Itinéraire', 'Standard'],
+      ['Humidité', '25 / 32'],
+      ['Dernier nettoyage', '35 m² · 42 min'],
+      ['Usure : Filtre', '3 %'],
+    ],
+  );
+  // An unknown list is the default one.
+  assert.deepEqual(robotContent(view(), 'fr', { list: 'nope' }), robotContent(view(), 'fr', {}));
+});
+
+test('a low battery is flagged, and a list stays within ten rows', () => {
+  const low = view({ caps: null });
+  low.props.set('3.1', 15);
+  for (const prop of ['17.1', '18.1', '19.2', '20.1', '24.1', '25.2', '26.2', '29.2', '31.2']) {
+    low.props.set(prop, 50);
+  }
+  const content = robotContent(low, 'en');
+  assert.deepEqual(validateWidgetContent(content), []);
+  const { items } = find(content, (c) => c.type === 'status');
+  assert.deepEqual(
+    [items[0].label, items[0].value, items[0].color],
+    ['Battery', '15 %', 'warning'],
+  );
+  assert.equal(items.length, 10);
+  low.props.set('3.1', 8);
+  assert.equal(find(robotContent(low, 'en'), (c) => c.type === 'status').items[0].color, 'danger');
+});
+
 test('the last clean is left out until there is one', () => {
   const fresh = view();
   fresh.props.set('4.2', 0);
   fresh.props.set('4.3', 0);
-  const labels = find(robotContent(fresh, 'fr'), (c) => c.type === 'status').items.map(
-    (item) => item.label,
-  );
+  const content = robotContent(fresh, 'fr', { list: 'settings' });
+  const labels = find(content, (c) => c.type === 'status').items.map((item) => item.label);
   assert.ok(!labels.includes('Dernier nettoyage'));
 });
 
-test('a robot added to Gladys gets a live battery tile', () => {
-  const features = new Set([ids.feature('battery')]);
-  const content = robotContent(view({ features }), 'fr');
-  const battery = find(content, (c) => c.type === 'value');
-  assert.equal(battery.device_feature, ids.feature('battery'));
-  assert.equal(battery.value, undefined);
-  assert.deepEqual(validateWidgetContent(content), []);
+test('rooms picked: the clean button cleans them, unless a paused task waits', () => {
+  const picked = view({ picks: new Set(['2', '12']) });
+  assert.ok(cleansSelection(picked));
+  const label = (content) => find(content, (c) => c.type === 'button').label;
+  assert.equal(label(robotContent(picked, 'fr')), 'Nettoyer la sélection');
+  assert.equal(label(robotContent(picked, 'en')), 'Clean the selection');
+  // a room picked that the map no longer has does not count
+  assert.ok(!cleansSelection(view({ picks: new Set(['99']) })));
+  const paused = view({ picks: new Set(['2']) });
+  paused.props.set('2.1', 2);
+  paused.props.set('4.7', 6);
+  paused.props.set('4.1', 2);
+  assert.ok(!cleansSelection(paused));
+  assert.equal(label(robotContent(paused, 'fr')), 'Reprendre');
 });
 
 test('the state says the error, and the pause turns the clean button into resume', () => {

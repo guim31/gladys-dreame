@@ -201,8 +201,8 @@
         "fr": "Robot aspirateur"
       },
       "description": {
-        "en": "State, battery, map of the home, settings and the everyday buttons.",
-        "fr": "État, batterie, carte du logement, réglages et boutons du quotidien."
+        "en": "State, map of the home, battery and wear of the parts, and the everyday buttons.",
+        "fr": "État, carte du logement, batterie et usure des pièces, et les boutons du quotidien."
       },
       "icon": "disc",
       "settings": [
@@ -219,6 +219,36 @@
             "fr": "Laissez vide pour afficher le premier robot du compte."
           },
           "required": false
+        },
+        {
+          "key": "list",
+          "type": "select",
+          "label": {
+            "en": "List",
+            "fr": "Liste"
+          },
+          "description": {
+            "en": "What the list under the map shows.",
+            "fr": "Ce que montre la liste sous la carte."
+          },
+          "required": false,
+          "default": "maintenance",
+          "options": [
+            {
+              "value": "maintenance",
+              "label": {
+                "en": "Battery and wear of the parts",
+                "fr": "Batterie et usure des pièces"
+              }
+            },
+            {
+              "value": "settings",
+              "label": {
+                "en": "Battery, settings and last clean",
+                "fr": "Batterie, réglages et dernier nettoyage"
+              }
+            }
+          ]
         }
       ],
       "action_timeout_seconds": 20

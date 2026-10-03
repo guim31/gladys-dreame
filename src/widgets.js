@@ -1,9 +1,11 @@
 // -----------------------------------------------------------------------------
 // Dashboard widgets (Gladys 5.1+), content builders — pure functions.
 //
-//   - robot         : one robot at a glance: state, battery, the map of the
-//                     home, its settings and last clean, the four everyday
-//                     buttons;
+//   - robot         : one robot at a glance: state, the map of the home, a
+//                     list (battery and wear of the parts, or battery, settings
+//                     and last clean: a widget setting), the four everyday
+//                     buttons — its clean button cleans the rooms picked when
+//                     there are some;
 //   - quick_clean   : up to four buttons, each a shortcut of the app, a room or
 //                     several rooms (named in the widget settings), for a wall
 //                     tablet;
@@ -16,10 +18,10 @@
 //
 // A widget shows the robot picked in its settings, else the first one. The
 // buttons are widget actions carrying the robot id: they work whether or not
-// the robot was added to Gladys. The battery and the wear gauges are bound to
-// the device features when the robot was added, so they follow its states
-// live. The map is an image served by the integration (onWidgetGetImage); its
-// key changes with its bytes.
+// the robot was added to Gladys. The wear gauges are bound to the device
+// features when the robot was added, so they follow its states live; a list
+// follows them through the nudges. The map is an image served by the
+// integration (onWidgetGetImage); its key changes with its bytes.
 //
 // Gladys renders at most 8 components, 2 of them texts and 4 of them buttons,
 // and drops a button whose action key another one already uses: the keys are
@@ -71,6 +73,13 @@ const ROBOT_BUTTONS = {
   locate: { code: FEATURE_CODES.LOCATE, value: 1, icon: 'map-pin' },
 };
 
+// What the list of the robot widget shows (its `list` setting): the battery
+// and the wear of the parts, or the battery, the settings and the last clean.
+export const ROBOT_LISTS = ['maintenance', 'settings'];
+export const DEFAULT_ROBOT_LIST = 'maintenance';
+// Gladys shows ten rows of a list at most.
+const MAX_ROWS = 10;
+
 // The widget settings naming the quick buttons.
 export const QUICK_BUTTON_SETTINGS = ['button_1', 'button_2', 'button_3', 'button_4'];
 // Several rooms in one quick button: "Cuisine + Salon", "Cuisine, Salon".
@@ -100,6 +109,9 @@ const CURRENT_ICON = 'check-circle';
 // Wear thresholds, in percent left.
 const WORN = 10;
 const WEARING = 30;
+// Battery thresholds, in percent.
+const BATTERY_EMPTY = 10;
+const BATTERY_LOW = 20;
 
 /**
  * The language of a widget: Gladys sends the user's, the texts exist in two.
@@ -198,6 +210,87 @@ function wearColor(left) {
   return left <= WEARING ? WIDGET_COLORS.WARNING : WIDGET_COLORS.SUCCESS;
 }
 
+function batteryColor(level) {
+  if (level <= BATTERY_EMPTY) {
+    return WIDGET_COLORS.DANGER;
+  }
+  return level <= BATTERY_LOW ? WIDGET_COLORS.WARNING : WIDGET_COLORS.SUCCESS;
+}
+
+// The rows of a list for the wear parts, as wearOf() sorts them.
+function wearRows(wear, language) {
+  const t = texts(language);
+  return wear.map((part) => ({
+    label: fit(t.consumables[part.code], 40),
+    value: `${part.left} %`,
+    color: wearColor(part.left),
+  }));
+}
+
+/**
+ * Whether the clean button of the robot widget cleans the rooms picked rather
+ * than the whole home: some rooms are picked (the "Selection" switches), and
+ * no paused task waits to be resumed.
+ * @param {object} robot the robot (`props`, `newNumbering`, `rooms`, `picks`)
+ * @returns {boolean} true when the button cleans the rooms picked
+ */
+export function cleansSelection(robot) {
+  const picks = robot.picks || new Set();
+  return (
+    gladysStateOf(robot.props, robot.newNumbering) !== VACUUM_CLEANER_STATE.PAUSED &&
+    (robot.rooms || []).some((room) => picks.has(String(room.id)))
+  );
+}
+
+// The settings under way and the last clean, for the `settings` list.
+function settingRows(view, language) {
+  const t = texts(language);
+  const w = t.widget;
+  const rows = [];
+  const mode = view.mopping ? cleaningModeOf(view.props, view.mopping) : null;
+  if (mode) {
+    rows.push({ label: w.mode, value: fit(t.cleaningModes[mode], 40) });
+  }
+  const suction = SUCTION_LEVELS.find(
+    (level) => level.code === toNumber(view.props.get(PROP.SUCTION_LEVEL)),
+  );
+  if (suction) {
+    const boosted = maxSuctionOf(view.props) === 1;
+    rows.push({
+      label: w.suction,
+      value: boosted ? `${t.suctions[suction.value]} (${w.maxSuction})` : t.suctions[suction.value],
+    });
+  }
+  const route = routeOf(view.props);
+  if (route) {
+    rows.push({ label: w.route, value: t.routes[route.value] });
+  }
+  const wetness = toNumber(view.props.get(PROP.WETNESS_LEVEL));
+  if (view.mopping && view.mopping.wetness && wetness !== null) {
+    rows.push({ label: w.wetness, value: `${wetness} / 32` });
+  }
+  // Nothing to say before a first clean (both stay at 0).
+  const area = toNumber(view.props.get(PROP.CLEANED_AREA));
+  const minutes = toNumber(view.props.get(PROP.CLEANING_TIME));
+  if (area > 0 || minutes > 0) {
+    rows.push({
+      label: w.lastClean,
+      value: [area !== null ? `${area} m²` : null, minutes !== null ? `${minutes} min` : null]
+        .filter(Boolean)
+        .join(' · '),
+    });
+  }
+  const [worst] = wearOf(view);
+  if (worst) {
+    rows.push({
+      label: fit(w.wear(t.consumables[worst.code]), 40),
+      value: `${worst.left} %`,
+      color: wearColor(worst.left),
+    });
+  }
+  return rows;
+}
+
 /**
  * The "robot" widget.
  * @param {object} view what the integration knows of the robot
@@ -211,91 +304,44 @@ function wearColor(left) {
  * @param {Set<string>|null} view.features the external ids of its features in
  *   Gladys, null when it was not added
  * @param {string|null} view.mapKey the key of its map image
+ * @param {Array<object>} view.rooms its rooms (`{ id }`)
+ * @param {Set<string>} view.picks the ids of the rooms picked
  * @param {string} language `fr` or `en`
+ * @param {object} [settings] the widget settings (`list`: a ROBOT_LISTS value)
  * @returns {object} the widget content
  */
-export function robotContent(view, language) {
+export function robotContent(view, language, settings = {}) {
   const t = texts(language);
   const w = t.widget;
   const components = [header(view, language)];
-  const has = (code) => Boolean(view.features && view.features.has(view.ids.feature(code)));
-
-  const battery = toNumber(view.props.get(PROP.BATTERY));
-  if (has(FEATURE_CODES.BATTERY)) {
-    components.push({
-      type: 'value',
-      label: w.battery,
-      icon: 'battery',
-      device_feature: view.ids.feature(FEATURE_CODES.BATTERY),
-    });
-  } else if (battery !== null) {
-    components.push({
-      type: 'value',
-      label: w.battery,
-      icon: 'battery',
-      value: battery,
-      unit: '%',
-    });
-  }
   if (view.mapKey) {
     components.push({ type: 'image', key: view.mapKey, alt: w.map, fit: 'contain' });
   }
 
+  // The battery opens the list: as a tile, Gladys would set it above the map,
+  // on a row of its own.
   const items = [];
-  const mode = view.mopping ? cleaningModeOf(view.props, view.mopping) : null;
-  if (mode) {
-    items.push({ label: w.mode, value: fit(t.cleaningModes[mode], 40) });
+  const battery = toNumber(view.props.get(PROP.BATTERY));
+  if (battery !== null) {
+    items.push({ label: w.battery, value: `${battery} %`, color: batteryColor(battery) });
   }
-  const suction = SUCTION_LEVELS.find(
-    (level) => level.code === toNumber(view.props.get(PROP.SUCTION_LEVEL)),
+  const list = ROBOT_LISTS.includes(settings && settings.list) ? settings.list : DEFAULT_ROBOT_LIST;
+  items.push(
+    ...(list === 'settings' ? settingRows(view, language) : wearRows(wearOf(view), language)),
   );
-  if (suction) {
-    const boosted = maxSuctionOf(view.props) === 1;
-    items.push({
-      label: w.suction,
-      value: boosted ? `${t.suctions[suction.value]} (${w.maxSuction})` : t.suctions[suction.value],
-    });
-  }
-  const route = routeOf(view.props);
-  if (route) {
-    items.push({ label: w.route, value: t.routes[route.value] });
-  }
-  const wetness = toNumber(view.props.get(PROP.WETNESS_LEVEL));
-  if (view.mopping && view.mopping.wetness && wetness !== null) {
-    items.push({ label: w.wetness, value: `${wetness} / 32` });
-  }
-  // Nothing to say before a first clean (both stay at 0).
-  const area = toNumber(view.props.get(PROP.CLEANED_AREA));
-  const minutes = toNumber(view.props.get(PROP.CLEANING_TIME));
-  if (area > 0 || minutes > 0) {
-    items.push({
-      label: w.lastClean,
-      value: [area !== null ? `${area} m²` : null, minutes !== null ? `${minutes} min` : null]
-        .filter(Boolean)
-        .join(' · '),
-    });
-  }
-  const [worst] = wearOf(view);
-  if (worst) {
-    items.push({
-      label: fit(w.wear(t.consumables[worst.code]), 40),
-      value: `${worst.left} %`,
-      color: wearColor(worst.left),
-    });
-  }
   if (items.length > 0) {
-    components.push({ type: 'status', items });
+    components.push({ type: 'status', items: items.slice(0, MAX_ROWS) });
   }
 
   const params = { did: view.did };
   const state = gladysStateOf(view.props, view.newNumbering);
-  const paused = state === VACUUM_CLEANER_STATE.PAUSED;
-  const labels = {
-    start: paused ? w.resume : w.clean,
-    pause: w.pause,
-    dock: w.dock,
-    locate: w.locate,
-  };
+  let start = w.clean;
+  if (state === VACUUM_CLEANER_STATE.PAUSED) {
+    start = w.resume;
+  } else if (cleansSelection(view)) {
+    start = w.cleanSelection;
+  }
+  const labels = { start, pause: w.pause, dock: w.dock, locate: w.locate };
   for (const [key, button] of Object.entries(ROBOT_BUTTONS)) {
     components.push(actionButton(labels[key], key, params, button.icon));
   }
@@ -627,17 +673,15 @@ export function settingContent(view, settings, language) {
 }
 
 /**
- * What a widget button stands for: a feature command, or a clean of rooms.
+ * What a widget button stands for: a feature command, or a clean of rooms. The
+ * `kind` of its params wins: the clean button of the robot widget is sent as a
+ * `selection` when it cleans the rooms picked (see cleansSelection()).
  * @param {string} actionKey the key of the button
  * @param {object} params its params (as the widget content declared them)
  * @returns {{ code: string, value: * }|{ rooms: Array<number> }|null} the
  *   command, null for an unknown button
  */
 export function widgetCommand(actionKey, params = {}) {
-  if (ROBOT_BUTTONS[actionKey]) {
-    const { code, value } = ROBOT_BUTTONS[actionKey];
-    return { code, value };
-  }
   if (params.kind === 'shortcut' && Number.isSafeInteger(Number(params.id))) {
     return { code: `${FEATURE_CODES.SHORTCUT_PREFIX}${Number(params.id)}`, value: 1 };
   }
@@ -649,6 +693,10 @@ export function widgetCommand(actionKey, params = {}) {
   }
   if (params.kind === 'set' && Object.values(SETTINGS).includes(params.code)) {
     return { code: params.code, value: params.value };
+  }
+  if (ROBOT_BUTTONS[actionKey]) {
+    const { code, value } = ROBOT_BUTTONS[actionKey];
+    return { code, value };
   }
   return null;
 }
@@ -664,9 +712,6 @@ export function widgetCommand(actionKey, params = {}) {
 export function widgetMessage(actionKey, params, robot, language) {
   const t = texts(language);
   const done = t.widget.done;
-  if (ROBOT_BUTTONS[actionKey]) {
-    return done[actionKey];
-  }
   if (params.kind === 'shortcut') {
     const shortcut = (robot.shortcuts || []).find((item) => String(item.id) === String(params.id));
     return done.shortcut(shortcut ? shortcut.name : params.id);
@@ -681,8 +726,14 @@ export function widgetMessage(actionKey, params, robot, language) {
   if (params.kind === 'selection') {
     return done.selection;
   }
-  const setting = Object.keys(SETTINGS).find((key) => SETTINGS[key] === params.code);
-  return done.setting(t.widget.settingNames[setting], choiceLabel(setting, params.value, language));
+  if (params.kind === 'set') {
+    const setting = Object.keys(SETTINGS).find((key) => SETTINGS[key] === params.code);
+    return done.setting(
+      t.widget.settingNames[setting],
+      choiceLabel(setting, params.value, language),
+    );
+  }
+  return done[actionKey];
 }
 
 function choiceLabel(setting, value, language) {
@@ -753,13 +804,6 @@ export function maintenanceContent(view, language) {
           },
     );
   }
-  components.push({
-    type: 'status',
-    items: wear.slice(0, 10).map((part) => ({
-      label: fit(t.consumables[part.code], 40),
-      value: `${part.left} %`,
-      color: wearColor(part.left),
-    })),
-  });
+  components.push({ type: 'status', items: wearRows(wear.slice(0, MAX_ROWS), language) });
   return { version: 1, ttl_seconds: 3600, components };
 }

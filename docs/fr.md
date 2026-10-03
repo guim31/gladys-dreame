@@ -78,14 +78,18 @@ réglages, ou le premier robot du compte.
 > avec les fonctionnalités de réglage du robot (mode, aspiration, aspiration
 > maximale, itinéraire, humidité, fréquence et intervalles de lavage).
 
-- **Robot aspirateur** — le nom et l'état du robot, la batterie en direct, la
-  **carte du logement** (pièces en couleurs, base en vert, robot en blanc, cerclé
-  de vert quand il est sur sa base), les réglages en cours (mode, aspiration,
-  itinéraire, humidité), le dernier nettoyage, la pièce d'usure la plus usée, et
-  quatre boutons : _Nettoyer_ (ou _Reprendre_), _Pause_, _Base_, _Localiser_. La
-  carte est relue toutes les minutes pendant un nettoyage, toutes les 30 minutes
-  sinon, et seulement quand un tableau de bord l'affiche. Les noms des pièces n'y
-  figurent pas.
+- **Robot aspirateur** — le nom et l'état du robot, la **carte du logement** (pièces
+  en couleurs, base en vert, robot en blanc, cerclé de vert quand il est sur sa
+  base), une liste et quatre boutons : _Nettoyer_, _Pause_, _Retour base_,
+  _Localiser_. La liste donne la batterie puis l'usure de chaque pièce, de la plus
+  usée à la moins usée ; le paramètre **Liste** du widget la remplace par la
+  batterie, les réglages en cours (mode, aspiration, itinéraire, humidité), le
+  dernier nettoyage et la pièce la plus usée. _Nettoyer_ nettoie tout le logement,
+  ou seulement les pièces dont l'interrupteur **Sélection** est allumé : le bouton
+  s'appelle alors _Nettoyer la sélection_. Un robot en pause propose _Reprendre_.
+  La carte est relue toutes les minutes pendant un nettoyage, toutes les 30
+  minutes sinon, et seulement quand un tableau de bord l'affiche. Les noms des
+  pièces n'y figurent pas.
 - **Réglage du robot** — un seul réglage en grands boutons, le choix en cours coché,
   pour l'avoir à portée de doigt sur une tablette : **Mode de nettoyage**,
   **Puissance d'aspiration**, **Puissance d'aspiration maximale**, **Itinéraire**,
@@ -98,7 +102,9 @@ réglages, ou le premier robot du compte.
   le nom d'un raccourci ou d'une pièce tel que Gladys l'affiche (majuscules et
   accents indifférents), plusieurs pièces séparées par « + » (« Cuisine + Salon »),
   ou « Nettoyer la sélection ». Le bouton de la tâche en cours est coché. Pratique
-  sur une tablette murale.
+  sur une tablette murale. Gladys affiche quatre boutons au plus par widget : pour
+  en avoir davantage, ajoutez un second **Nettoyage express** et nommez ses
+  boutons.
 - **Entretien du robot** — les trois pièces les plus usées en jauges, puis toutes
   les pièces suivies, de la plus usée à la moins usée : en rouge sous 10 %, en
   orange sous 30 %.

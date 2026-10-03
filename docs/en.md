@@ -70,13 +70,16 @@ the first robot of the account.
 > with the setting features of the robot (mode, suction, max suction, route,
 > wetness, washing frequency and intervals) next to the **Robot vacuum** widget.
 
-- **Robot vacuum** — the name and state of the robot, the live battery, the **map
-  of the home** (rooms in colors, dock in green, robot in white, ringed in green
-  when on its dock), the current settings (mode, suction, route, wetness), the
-  last clean, the most worn part, and four buttons: _Clean_ (or _Resume_),
-  _Pause_, _Dock_, _Locate_. The map is read again every minute while cleaning,
-  every 30 minutes otherwise, and only while a dashboard shows it. Room names are
-  not written on it.
+- **Robot vacuum** — the name and state of the robot, the **map of the home**
+  (rooms in colors, dock in green, robot in white, ringed in green when on its
+  dock), a list and four buttons: _Clean_, _Pause_, _Dock_, _Locate_. The list
+  gives the battery, then the wear of each part, the most worn first; the **List**
+  setting of the widget turns it into the battery, the current settings (mode,
+  suction, route, wetness), the last clean and the most worn part. _Clean_ cleans
+  the whole home, or only the rooms whose **Selection** switch is on: the button
+  then reads _Clean the selection_. A paused robot offers _Resume_. The map is
+  read again every minute while cleaning, every 30 minutes otherwise, and only
+  while a dashboard shows it. Room names are not written on it.
 - **Robot setting** — a single setting as big buttons, the current choice ticked,
   at hand on a tablet: **Cleaning mode**, **Suction power**, **Max suction
   power**, **Cleaning route**, **Mop wetness** (_Slightly dry_, _Damp_, _Wet_) or
@@ -87,7 +90,9 @@ the first robot of the account.
   Dreamehome app; otherwise, write in **Button 1** to **4** the name of a
   shortcut or a room as Gladys shows it (case and accents do not matter), several
   rooms joined by "+" ("Kitchen + Living room"), or "Clean the selection". The
-  button of the task under way is ticked. Handy on a wall tablet.
+  button of the task under way is ticked. Handy on a wall tablet. Gladys shows
+  four buttons at most per widget: for more, add a second **Quick clean** and name
+  its buttons.
 - **Robot maintenance** — the three most worn parts as gauges, then every part
   tracked, the most worn first: red under 10 %, orange under 30 %.
 

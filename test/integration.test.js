@@ -221,11 +221,8 @@ test('a linked account, from discovery to commands', async (t) => {
     const content = dreame.widgetContent('robot', { settings: {}, language: 'fr' });
     assert.deepEqual(validateWidgetContent(content), []);
     assert.ok(content.components[0].text.startsWith(`${ROBOT.name} · `));
-    // the robot was added: its battery tile is live
-    assert.equal(
-      content.components.find((c) => c.type === 'value').device_feature,
-      ids.feature('battery'),
-    );
+    // the battery opens the list, the wear of the parts follows
+    assert.equal(content.components.find((c) => c.type === 'status').items[0].label, 'Batterie');
     // the map read at discovery, drawn and served by its key
     const { key } = content.components.find((c) => c.type === 'image');
     assert.deepEqual(validateWidgetImage(dreame.widgetImage(key)), []);
@@ -254,6 +251,35 @@ test('a linked account, from discovery to commands', async (t) => {
       dreame.widgetAction('explode', { did: ROBOT.did }),
       /Unknown widget action/,
     );
+
+    // rooms picked: the clean button of the robot widget cleans them…
+    const device = gladys.devices[0];
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 1);
+    const start = () =>
+      dreame
+        .widgetContent('robot', { settings: {}, language: 'fr' })
+        .components.find((c) => c.type === 'button' && c.action.key === 'start');
+    assert.equal(start().label, 'Nettoyer la sélection');
+    const picked = await dreame.widgetAction('start', start().action.params);
+    assert.deepEqual(picked, {
+      en: 'Cleaning of the selection started',
+      fr: 'Nettoyage de la sélection lancé',
+    });
+    const selection = fake.state.commands.at(-1).params.in;
+    assert.equal(selection[0].value, 18);
+    assert.deepEqual(
+      JSON.parse(selection[1].value).selects.map((entry) => entry[0]),
+      [4],
+    );
+    // … as they are when it is pressed, the whole home once none is left
+    const params = start().action.params;
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 0);
+    assert.deepEqual(await dreame.widgetAction('start', params), {
+      en: 'Cleaning started',
+      fr: 'Nettoyage lancé',
+    });
+    const full = fake.state.commands.at(-1).params;
+    assert.deepEqual([full.siid, full.aiid], [2, 1]);
 
     // a setting as buttons: the lit one is the robot's, a press sets another
     const suction = dreame.widgetContent('robot_setting', {
