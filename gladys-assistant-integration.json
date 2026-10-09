@@ -201,8 +201,8 @@
         "fr": "Robot aspirateur"
       },
       "description": {
-        "en": "State, map of the home, battery and wear of the parts, and the everyday buttons.",
-        "fr": "État, carte du logement, batterie et usure des pièces, et les boutons du quotidien."
+        "en": "State, map with the path of the robot, battery, last clean, wear of the parts, everyday buttons.",
+        "fr": "État, carte avec le trajet du robot, batterie, dernier nettoyage, usure, boutons du quotidien."
       },
       "icon": "disc",
       "settings": [
@@ -237,8 +237,8 @@
             {
               "value": "maintenance",
               "label": {
-                "en": "Battery and wear of the parts",
-                "fr": "Batterie et usure des pièces"
+                "en": "Battery, last clean and wear of the parts",
+                "fr": "Batterie, dernier nettoyage et usure des pièces"
               }
             },
             {

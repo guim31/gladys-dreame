@@ -21,6 +21,7 @@ import {
   tracksConsumable,
   usesNewStateNumbering,
 } from './dreame/models.js';
+import { pathOf } from './dreame/map.js';
 import { cleaningModeOf, moppingOf, splitGroup } from './dreame/mopping.js';
 import { renderMap } from './dreame/render.js';
 import { fetchMap } from './dreame/rooms.js';
@@ -176,7 +177,8 @@ async function diagnoseRobot(integration, record, index) {
       `  Map image: ${image ? `${image.width}x${image.height} px, ${Math.round(image.png.length / 1024)} KB` : 'empty map'}` +
         ` (drawn from the ${drawn === map.saved ? 'saved' : 'current'} map, cell ${drawn.gridSize} mm,` +
         ` fsm ${drawn.data.fsm ?? '-'}, ris ${drawn.data.ris ?? '-'}; robot ${map.frame.robot ? 'placed' : 'absent'},` +
-        ` charger ${map.frame.charger || drawn.charger ? 'placed' : 'absent'})`,
+        ` charger ${map.frame.charger || drawn.charger ? 'placed' : 'absent'};` +
+        ` path ${describePath(pathOf(map.frame))})`,
     );
   } catch (err) {
     trace.push(`FAILED: ${err.message}`);
@@ -185,4 +187,13 @@ async function diagnoseRobot(integration, record, index) {
   lines.push(`  Map IV: ${guessed ? 'guessed (model unknown to the table)' : 'known'}`);
   lines.push(...trace.map((step) => `  Map: ${step}`));
   return lines;
+}
+
+function describePath(strokes) {
+  if (strokes.length === 0) {
+    return 'absent';
+  }
+  const points = strokes.reduce((sum, stroke) => sum + stroke.points.length / 2, 0);
+  const types = [...new Set(strokes.map((stroke) => stroke.type))].join(',');
+  return `${strokes.length} stroke(s), ${points} point(s), ${types}`;
 }

@@ -93,7 +93,7 @@ const types = (content) => content.components.map((component) => component.type)
 const find = (content, predicate) => content.components.find(predicate);
 const buttons = (content) => content.components.filter((c) => c.type === 'button');
 
-test('the robot widget: state, map, battery and wear, buttons, all valid', () => {
+test('the robot widget: state, map, battery, last clean and wear, buttons, all valid', () => {
   const content = robotContent(view(), 'fr');
   assert.deepEqual(validateWidgetContent(content), []);
   // No tile: Gladys would set it above the map, on a row of its own.
@@ -116,6 +116,8 @@ test('the robot widget: state, map, battery and wear, buttons, all valid', () =>
     ]),
     [
       ['Batterie', '100 %', 'success'],
+      // the last clean right after the battery, as the settings list shows it
+      ['Dernier nettoyage', '35 m² · 42 min', undefined],
       // the most worn first; the wheels its model does not have are not a part
       ['Filtre', '3 %', 'danger'],
       ['Brosse latérale', '14 %', 'warning'],
@@ -176,6 +178,16 @@ test('a low battery is flagged, and a list stays within ten rows', () => {
     ['Battery', '15 %', 'warning'],
   );
   assert.equal(items.length, 10);
+  // More rows than places: the battery and the last clean stay, the least
+  // worn parts go.
+  assert.equal(items[1].label, 'Last clean');
+  const wear = wearOf(low);
+  assert.ok(wear.length > 8);
+  assert.deepEqual(
+    items.slice(2).map((item) => item.value),
+    wear.slice(0, 8).map((part) => `${part.left} %`),
+  );
+  assert.ok(wear.slice(8).every((part) => part.left >= wear[7].left));
   low.props.set('3.1', 8);
   assert.equal(find(robotContent(low, 'en'), (c) => c.type === 'status').items[0].color, 'danger');
 });
@@ -184,9 +196,33 @@ test('the last clean is left out until there is one', () => {
   const fresh = view();
   fresh.props.set('4.2', 0);
   fresh.props.set('4.3', 0);
-  const content = robotContent(fresh, 'fr', { list: 'settings' });
-  const labels = find(content, (c) => c.type === 'status').items.map((item) => item.label);
-  assert.ok(!labels.includes('Dernier nettoyage'));
+  for (const list of ['settings', 'maintenance']) {
+    const content = robotContent(fresh, 'fr', { list });
+    const labels = find(content, (c) => c.type === 'status').items.map((item) => item.label);
+    assert.ok(!labels.includes('Dernier nettoyage'));
+    assert.equal(labels[0], 'Batterie');
+  }
+  // An area without a duration (or the reverse) is still a last clean.
+  fresh.props.set('4.3', 12);
+  assert.deepEqual(find(robotContent(fresh, 'fr'), (c) => c.type === 'status').items[1], {
+    label: 'Dernier nettoyage',
+    value: '12 m² · 0 min',
+  });
+});
+
+test('the robot widget keeps within the budget of the core with the last clean', () => {
+  const full = view({ caps: null, picks: new Set(['2']) });
+  for (const prop of ['17.1', '18.1', '19.2', '20.1', '24.1', '25.2', '26.2', '29.2', '31.2']) {
+    full.props.set(prop, 50);
+  }
+  for (const list of ['maintenance', 'settings']) {
+    const content = robotContent(full, 'fr', { list });
+    assert.deepEqual(validateWidgetContent(content), []);
+    assert.ok(content.components.length <= 8);
+    assert.ok(content.components.filter((c) => c.type === 'text').length <= 2);
+    // One list, whatever its rows.
+    assert.equal(content.components.filter((c) => c.type === 'status').length, 1);
+  }
 });
 
 test('rooms picked: the clean button cleans them, unless a paused task waits', () => {
@@ -293,7 +329,7 @@ test('quick buttons: shortcuts, rooms and several rooms, by name', () => {
   assert.deepEqual(knownNames(view({ rooms: [], shortcuts: [] }), 'en'), ['Clean the selection']);
 });
 
-test('quick buttons: "clean the selection" shows what is picked', () => {
+test('quick buttons: "clean the selection" shows what is picked, in the order picked', () => {
   const content = quickContent(
     view({ picks: new Set(['1', '3']) }),
     { button_1: 'Nettoyer la sélection' },
@@ -301,7 +337,7 @@ test('quick buttons: "clean the selection" shows what is picked', () => {
   );
   assert.deepEqual(validateWidgetContent(content), []);
   assert.deepEqual(find(content, (c) => c.type === 'status').items, [
-    { label: 'Sélection', value: 'Chambre de Léa, Salon' },
+    { label: 'Sélection', value: 'Salon, Chambre de Léa' },
   ]);
   assert.deepEqual(buttons(content)[0].action.params, { did: '42', kind: 'selection' });
 });

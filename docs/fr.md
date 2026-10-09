@@ -45,8 +45,19 @@ Pour chaque robot de votre compte :
 - **Pièce à nettoyer** — les pièces de la carte de votre robot ; en choisir une
   lance son nettoyage, et la liste revient sur « — » une fois la pièce terminée.
 - **Plusieurs pièces** — un interrupteur **Sélection** par pièce, et le bouton
-  **Nettoyer la sélection** qui lance le nettoyage des pièces allumées, dans
-  l'ordre de la carte. La sélection est conservée d'un nettoyage à l'autre.
+  **Nettoyer la sélection** qui lance le nettoyage des pièces allumées, **dans
+  l'ordre où vous les avez allumées**, comme dans l'application. Pour changer
+  l'ordre, éteignez puis rallumez les pièces dans l'ordre voulu (rallumer une pièce
+  déjà allumée ne la déplace pas). La sélection et son ordre sont conservés d'un
+  nettoyage à l'autre, y compris quand Gladys ou l'intégration redémarre.
+
+  > Les robots qui proposent _Personnaliser le nettoyage des pièces_ (et ceux de
+  > cinquième génération) reçoivent les pièces dans cet ordre, mais pas leur numéro
+  > d'ordre : l'envoyer les bloque. Leur micrologiciel peut alors suivre l'**ordre
+  > de nettoyage** réglé dans l'application Dreamehome plutôt que le vôtre.
+  > Regardez dans quel ordre votre robot passe : si c'est celui de l'application,
+  > réglez-y l'ordre voulu.
+
 - **Raccourcis** — un bouton par raccourci créé dans l'application Dreamehome. Il
   conserve tous ses réglages : pièces, ordre, aspiration, débit d'eau, nombre de
   passages, serpillière.
@@ -79,14 +90,20 @@ réglages, ou le premier robot du compte.
 > maximale, itinéraire, humidité, fréquence et intervalles de lavage).
 
 - **Robot aspirateur** — le nom et l'état du robot, la **carte du logement** (pièces
-  en couleurs, base en vert, robot en blanc, cerclé de vert quand il est sur sa
-  base), une liste et quatre boutons : _Nettoyer_, _Pause_, _Retour base_,
-  _Localiser_. La liste donne la batterie puis l'usure de chaque pièce, de la plus
-  usée à la moins usée ; le paramètre **Liste** du widget la remplace par la
-  batterie, les réglages en cours (mode, aspiration, itinéraire, humidité), le
-  dernier nettoyage et la pièce la plus usée. _Nettoyer_ nettoie tout le logement,
-  ou seulement les pièces dont l'interrupteur **Sélection** est allumé : le bouton
-  s'appelle alors _Nettoyer la sélection_. Un robot en pause propose _Reprendre_.
+  en couleurs, **trajet du robot** — en blanc là où il a aspiré, en bleu là où il
+  n'a fait que laver —, base en vert, robot en blanc par-dessus, cerclé de vert
+  quand il est sur sa base), une liste et quatre boutons : _Nettoyer_, _Pause_,
+  _Retour base_, _Localiser_. La liste donne la batterie, le **dernier nettoyage**
+  (surface et durée), puis l'usure de chaque pièce, de la plus usée à la moins
+  usée ; quand la place manque, c'est la pièce la moins usée qui disparaît. Le
+  paramètre **Liste** du widget la remplace par la batterie, les réglages en cours
+  (mode, aspiration, itinéraire, humidité), le dernier nettoyage et la pièce la
+  plus usée. _Nettoyer_ nettoie tout le logement, ou seulement les pièces dont
+  l'interrupteur **Sélection** est allumé, dans l'ordre où elles l'ont été : le
+  bouton s'appelle alors _Nettoyer la sélection_. Un robot en pause propose
+  _Reprendre_. Le trajet est celui du nettoyage en cours, ou du dernier, tel que le
+  robot l'envoie avec sa carte ; un robot qui n'en envoie pas garde la carte
+  seule.
   La carte est relue toutes les minutes pendant un nettoyage, toutes les 30
   minutes sinon, et seulement quand un tableau de bord l'affiche. Les noms des
   pièces n'y figurent pas.
@@ -141,9 +158,10 @@ les 6 heures, ou tout de suite avec **Rechercher**).
   « Erreur », puis lire le message de la fonctionnalité **Erreur**.
 - Action « Contrôler un appareil » : **Nettoyage** sur _Nettoyer_ pour lancer le
   robot, **Pièce à nettoyer** sur une pièce, ou un bouton de **Raccourci**.
-- Plusieurs pièces : allumer leurs interrupteurs **Sélection**, puis appuyer sur
-  **Nettoyer la sélection**. Le mode et les réglages se posent de la même façon,
-  avant de lancer le nettoyage.
+- Plusieurs pièces : allumer leurs interrupteurs **Sélection** dans l'ordre de
+  passage voulu, puis appuyer sur **Nettoyer la sélection**. Pour imposer un
+  ordre, commencez par éteindre toutes les pièces, puis allumez-les une à une. Le
+  mode et les réglages se posent de la même façon, avant de lancer le nettoyage.
 
 ## Signaler un problème
 
