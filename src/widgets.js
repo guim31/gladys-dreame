@@ -2,10 +2,10 @@
 // Dashboard widgets (Gladys 5.1+), content builders — pure functions.
 //
 //   - robot         : one robot at a glance: state, the map of the home, a
-//                     list (battery and wear of the parts, or battery, settings
-//                     and last clean: a widget setting), the four everyday
-//                     buttons — its clean button cleans the rooms picked when
-//                     there are some;
+//                     list (battery, last clean and wear of the parts, or
+//                     battery, settings and last clean: a widget setting), the
+//                     four everyday buttons — its clean button cleans the
+//                     rooms picked when there are some, in the order picked;
 //   - quick_clean   : up to four buttons, each a shortcut of the app, a room or
 //                     several rooms (named in the widget settings), for a wall
 //                     tablet;
@@ -73,8 +73,9 @@ const ROBOT_BUTTONS = {
   locate: { code: FEATURE_CODES.LOCATE, value: 1, icon: 'map-pin' },
 };
 
-// What the list of the robot widget shows (its `list` setting): the battery
-// and the wear of the parts, or the battery, the settings and the last clean.
+// What the list of the robot widget shows (its `list` setting): the battery,
+// the last clean and the wear of the parts, or the battery, the settings and
+// the last clean.
 export const ROBOT_LISTS = ['maintenance', 'settings'];
 export const DEFAULT_ROBOT_LIST = 'maintenance';
 // Gladys shows ten rows of a list at most.
@@ -242,6 +243,42 @@ export function cleansSelection(robot) {
   );
 }
 
+/**
+ * The row of the last clean (area and duration), as both lists of the robot
+ * widget show it.
+ * @param {object} view the robot, see robotContent()
+ * @param {string} language `fr` or `en`
+ * @returns {object|null} the row, null before a first clean
+ */
+export function lastCleanRow(view, language) {
+  const area = toNumber(view.props.get(PROP.CLEANED_AREA));
+  const minutes = toNumber(view.props.get(PROP.CLEANING_TIME));
+  // Nothing to say before a first clean (both stay at 0).
+  if (!(area > 0 || minutes > 0)) {
+    return null;
+  }
+  return {
+    label: texts(language).widget.lastClean,
+    value: [area !== null ? `${area} m²` : null, minutes !== null ? `${minutes} min` : null]
+      .filter(Boolean)
+      .join(' · '),
+  };
+}
+
+/**
+ * The rooms picked (the "Selection" switches), in the order they were switched
+ * on: the order the clean of the selection follows.
+ * @param {object} view the robot (`rooms`, `picks`)
+ * @param {string} language `fr` or `en`
+ * @returns {Array<{ id: number, name: string }>} the rooms picked, named
+ */
+export function pickedRooms(view, language) {
+  const named = new Map(
+    namedRooms(view.rooms || [], language).map((room) => [String(room.id), room]),
+  );
+  return [...(view.picks || [])].map((id) => named.get(String(id))).filter(Boolean);
+}
+
 // The settings under way and the last clean, for the `settings` list.
 function settingRows(view, language) {
   const t = texts(language);
@@ -269,16 +306,9 @@ function settingRows(view, language) {
   if (view.mopping && view.mopping.wetness && wetness !== null) {
     rows.push({ label: w.wetness, value: `${wetness} / 32` });
   }
-  // Nothing to say before a first clean (both stay at 0).
-  const area = toNumber(view.props.get(PROP.CLEANED_AREA));
-  const minutes = toNumber(view.props.get(PROP.CLEANING_TIME));
-  if (area > 0 || minutes > 0) {
-    rows.push({
-      label: w.lastClean,
-      value: [area !== null ? `${area} m²` : null, minutes !== null ? `${minutes} min` : null]
-        .filter(Boolean)
-        .join(' · '),
-    });
+  const last = lastCleanRow(view, language);
+  if (last) {
+    rows.push(last);
   }
   const [worst] = wearOf(view);
   if (worst) {
@@ -326,9 +356,17 @@ export function robotContent(view, language, settings = {}) {
     items.push({ label: w.battery, value: `${battery} %`, color: batteryColor(battery) });
   }
   const list = ROBOT_LISTS.includes(settings && settings.list) ? settings.list : DEFAULT_ROBOT_LIST;
-  items.push(
-    ...(list === 'settings' ? settingRows(view, language) : wearRows(wearOf(view), language)),
-  );
+  if (list === 'settings') {
+    items.push(...settingRows(view, language));
+  } else {
+    // The last clean right after the battery, then the wear, the most worn
+    // first: when the rows run out, the least worn part is the one left out.
+    const last = lastCleanRow(view, language);
+    if (last) {
+      items.push(last);
+    }
+    items.push(...wearRows(wearOf(view), language));
+  }
   if (items.length > 0) {
     components.push({ type: 'status', items: items.slice(0, MAX_ROWS) });
   }
@@ -453,9 +491,8 @@ export function quickContent(view, settings, language) {
   const w = texts(language).widget;
   const components = [header(view, language)];
   const { buttons, unknown } = quickButtons(view, settings, language);
-  const picked = namedRooms(view.rooms || [], language).filter((room) =>
-    (view.picks || new Set()).has(String(room.id)),
-  );
+  // In the order they were picked, the order they are cleaned in.
+  const picked = pickedRooms(view, language);
   if (picked.length > 0 && buttons.some((entry) => entry.params.kind === 'selection')) {
     components.push({
       type: 'status',

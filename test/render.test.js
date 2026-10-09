@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { inflateSync } from 'node:zlib';
 import { validateWidgetImage } from '@gladysassistant/integration-sdk';
 
-import { decodeMapFrame } from '../src/dreame/map.js';
+import { MAX_PATH_POINTS, decodeMapFrame, pathOf } from '../src/dreame/map.js';
 import { MAX_IMAGE, cellOf, pixelFormatOf, renderMap, roomColors } from '../src/dreame/render.js';
 import { buildMapFrame, roomGrid } from './helpers/mapFrame.js';
 
@@ -181,4 +181,105 @@ test('a robot on its base is ringed in green, the base being under it', () => {
   assert.deepEqual(png.rgba(ringX, ringY), [47, 179, 68, 255]);
   // Inside, the robot itself.
   assert.deepEqual(png.rgba(Math.floor((20 + 0.5) * 8) + 10, ringY), [255, 255, 255, 255]);
+});
+
+// --- The path of the robot -----------------------------------------------------
+
+// A clean of room 2 the way a robot writes it (`tr`, Home Assistant format):
+// lanes up and down 10 cm apart while vacuuming and mopping (`W`, then
+// relative `L` steps of 2 cm, as a robot logs them), then a mop-only stroke
+// (`M`) along the bottom, ended by an absolute step (`l`); the robot stands at
+// the end of the lanes.
+function lanes() {
+  let tr = 'W725,150';
+  for (let lane = 0; lane < 6; lane += 1) {
+    const up = lane % 2 === 0;
+    for (let step = 0; step < 35; step += 1) {
+      tr += `L0,${up ? 20 : -20}`;
+    }
+    tr += 'L100,0';
+  }
+  return `${tr}M700,125L300,0l1300,125`;
+}
+const withPath = (tr, robot = { x: 1325, y: 150, angle: 0 }) =>
+  decodeMapFrame(
+    buildMapFrame({
+      width: 30,
+      height: 20,
+      grid: roomGrid(30, 20, { 1: [2, 2, 12, 8], 2: [13, 2, 27, 17] }),
+      charger: { x: 350, y: 250, angle: 0 },
+      robot,
+      data: { seg_inf: { 1: {}, 2: {} }, tr },
+    }),
+  );
+
+test('the path is read as strokes, steps merged at the scale of the map', () => {
+  const strokes = pathOf(withPath(lanes()));
+  assert.deepEqual(
+    strokes.map((stroke) => stroke.type),
+    ['sweep-mop', 'mop'],
+  );
+  const [lanesStroke, mop] = strokes;
+  // It starts where `W` says, and every relative step adds up.
+  assert.deepEqual(lanesStroke.points.slice(0, 2), [725, 150]);
+  assert.deepEqual(lanesStroke.points.slice(-2), [1325, 150]);
+  // 2 cm steps are merged two by two (the map has 5 cm cells).
+  assert.ok(lanesStroke.points.length / 2 < 6 * 35);
+  assert.ok(lanesStroke.points.length / 2 > 6 * 35 * 0.4);
+  // `l` is an absolute point, drawn on from the last one.
+  assert.deepEqual(mop.points, [700, 125, 1000, 125, 1300, 125]);
+  // `S` is a stroke of vacuuming only; a lone point or steps before any
+  // stroke draw nothing.
+  assert.deepEqual(pathOf(withPath('L50,50S100,100L0,500')), [
+    { type: 'sweep', points: [100, 100, 100, 600] },
+  ]);
+  assert.deepEqual(pathOf(withPath('S100,100')), []);
+  assert.deepEqual(pathOf(withPath('')), []);
+  assert.deepEqual(pathOf({ data: {} }), []);
+  assert.deepEqual(pathOf(withPath('garbage')), []);
+});
+
+test('the path is drawn over the rooms, the robot over the path', () => {
+  const bare = readPng(renderMap({ frame: withPath(lanes()) }, { path: false }).png);
+  const image = renderMap({ frame: withPath(lanes()) });
+  assert.deepEqual(validateWidgetImage(image.png.toString('base64')), []);
+  const drawn = readPng(image.png);
+  // The first lane goes up x = 725 mm (cell 14) from y = 150 to 850 mm.
+  const lane = center(drawn, 14, 9);
+  assert.notDeepEqual(lane, center(bare, 14, 9));
+  assert.deepEqual(lane, [250, 251, 253, 255]);
+  // The mop-only stroke along y = 125 mm (cell 2, the wall row of room 2) is
+  // another color.
+  const mop = center(drawn, 17, 2);
+  assert.deepEqual(mop, [36, 120, 214, 255]);
+  // Between two lanes (10 cm apart, two cells), the room shows through.
+  assert.deepEqual(center(drawn, 15, 9), center(bare, 15, 9));
+  // The robot stands at the end of a lane: drawn on top of it.
+  assert.deepEqual(center(drawn, 26, 3), center(bare, 26, 3));
+  // Room 1, which the robot did not clean, is untouched.
+  assert.deepEqual(center(drawn, 5, 5), center(bare, 5, 5));
+  // A map without a path is drawn as before.
+  assert.equal(renderMap({ frame }).key, renderMap({ frame }, { path: false }).key);
+  assert.notEqual(image.key, renderMap({ frame: withPath(lanes()) }, { path: false }).key);
+});
+
+test('a very long path stays within bounds, in size, time and points', () => {
+  // A robot going round and round for hours: far more steps than kept.
+  const steps = [];
+  for (let i = 0; i < 400000; i += 1) {
+    steps.push(i % 2 === 0 ? 'L37,0' : 'L-37,25');
+    if (i % 60 === 59) {
+      steps.push('L0,-1500');
+    }
+  }
+  const tr = `S700,150${steps.join('')}`;
+  const started = Date.now();
+  const strokes = pathOf(withPath(tr));
+  assert.ok(strokes.reduce((sum, stroke) => sum + stroke.points.length / 2, 0) <= MAX_PATH_POINTS);
+  const image = renderMap({ frame: withPath(tr) });
+  assert.ok(Date.now() - started < 5000, `${Date.now() - started} ms`);
+  assert.deepEqual(validateWidgetImage(image.png.toString('base64')), []);
+  // A palette PNG: a few kilobytes still, the widget frame at most.
+  assert.ok(image.png.length < 64 * 1024, `${image.png.length} bytes`);
+  assert.ok(image.width <= MAX_IMAGE.WIDTH && image.height <= MAX_IMAGE.HEIGHT);
 });

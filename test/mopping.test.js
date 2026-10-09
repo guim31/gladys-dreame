@@ -206,17 +206,18 @@ test('each washing slider acts on its own frequency, and is kept for later other
   assert.equal(value('wetness').state, 25);
 });
 
-test('several rooms are cleaned from the rooms picked, in the order of the map', () => {
+test('several rooms are cleaned from the rooms picked, in the order picked', () => {
   const rooms = [{ id: 3 }, { id: 1 }, { id: 5 }];
-  const picks = new Set(['5', '3']);
+  // picked: 5 then 3, and 7, which the map no longer has
+  const picks = new Set(['5', '7', '3']);
   assert.deepEqual(command('room-pick-1', 1), { kind: 'pick', room: '1', on: true });
   assert.deepEqual(command('room-pick-1', 0), { kind: 'pick', room: '1', on: false });
   const clean = command('clean-rooms', 1, [['4.4', 2]], { rooms, picks });
   assert.deepEqual(clean.action, [4, 1]);
   assert.deepEqual(JSON.parse(clean.params[1].value), {
     selects: [
-      [3, 1, 2, 2, 1],
       [5, 1, 2, 2, 1],
+      [3, 1, 2, 2, 1],
     ],
   });
   // Older robots number the entries.

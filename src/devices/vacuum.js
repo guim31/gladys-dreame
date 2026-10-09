@@ -680,6 +680,11 @@ export function waterLevelOf(props) {
  *   robots with room-by-room settings, and the fifth generation, stop
  *   otherwise), rather than its position
  * @returns {object} the START_CUSTOM action
+ *
+ * The rooms always go in cleaning order. With their positions as indexes the
+ * robot is told that order outright; with 1 everywhere (Home Assistant does the
+ * same) the list order is all it gets, and its firmware may follow the order
+ * set in the app instead.
  */
 function roomClean(rooms, props, fixedIndex) {
   const suction = toNumber(props.get(PROP.SUCTION_LEVEL));
@@ -733,7 +738,8 @@ function within(value, { min, max }) {
  * @param {object} [context.mopping] moppingOf() of the robot
  * @param {object} [context.washValues] washValuesOf() of the robot
  * @param {Array} [context.rooms] `[{ id }]`, in the order of the app
- * @param {Set<string>} [context.picks] the ids of the rooms picked
+ * @param {Set<string>} [context.picks] the ids of the rooms picked, in the
+ *   order they were switched on (the order they are cleaned in)
  * @returns {object|null} `{ kind: 'action', action, params }`,
  *   `{ kind: 'set', key, value }`, `{ kind: 'writes', writes }` (several
  *   properties, in order), `{ kind: 'pick', room, on }`, or null when there is
@@ -904,9 +910,13 @@ export function buildCommand(
     if (number !== 1) {
       return null;
     }
-    const chosen = rooms
-      .map((room) => toNumber(room.id))
-      .filter((room) => Number.isSafeInteger(room) && picks.has(String(room)));
+    // In the order the rooms were switched on, as the app numbers the rooms
+    // tapped; a room the map no longer has is left out.
+    const known = new Set(rooms.map((room) => String(room.id)));
+    const chosen = [...picks]
+      .filter((room) => known.has(String(room)))
+      .map(toNumber)
+      .filter((room) => Number.isSafeInteger(room) && room > 0);
     if (chosen.length === 0) {
       throw new UnsupportedCommandError('No room picked: switch on the rooms to clean first');
     }

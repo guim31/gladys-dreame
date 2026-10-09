@@ -123,18 +123,21 @@ answers for.
 Several rooms at once: each room has a **Selection** switch, kept by the
 integration (the robot has no such setting, and it survives restarts), and the
 **Clean the selection** button starts a segment clean of the rooms switched on, in
-the order of the map. Each entry carries 1 as its index on the robots with
-room-by-room settings and on the fifth generation (another index stops them), its
-position otherwise.
+the order they were switched on (a `Set` in insertion order, saved as an array in
+`/data/robots.json`; off then on moves a room last). Each entry carries 1 as its
+index on the robots with room-by-room settings and on the fifth generation
+(another index stops them, as in Home Assistant), its position otherwise: the
+former get the order from the list alone, and their firmware may follow the
+cleaning order set in the app instead.
 
 ### Dashboard widgets (Gladys 5.1+)
 
-| Widget            | Key             | Shows                                                                                                                                   |
-| ----------------- | --------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| Robot vacuum      | `robot`         | name and state, the map, a status list (battery and wear, or battery, settings and last clean: `list` setting), Clean/Pause/Dock/Locate |
-| Quick clean       | `quick_clean`   | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings ("Kitchen + Living room" for several)                  |
-| Robot setting     | `robot_setting` | one setting (mode, suction, max suction, route, wetness, mop washing) as up to 4 buttons, the current choice ticked                     |
-| Robot maintenance | `maintenance`   | the 3 most worn parts as gauges, every part in a status list                                                                            |
+| Widget            | Key             | Shows                                                                                                                                                                     |
+| ----------------- | --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Robot vacuum      | `robot`         | name and state, the map with the robot's path, a status list (battery, last clean and wear, or battery, settings and last clean: `list` setting), Clean/Pause/Dock/Locate |
+| Quick clean       | `quick_clean`   | up to 4 buttons: the app shortcuts, or the shortcuts/rooms named in its settings ("Kitchen + Living room" for several)                                                    |
+| Robot setting     | `robot_setting` | one setting (mode, suction, max suction, route, wetness, mop washing) as up to 4 buttons, the current choice ticked                                                       |
+| Robot maintenance | `maintenance`   | the 3 most worn parts as gauges, every part in a status list                                                                                                              |
 
 Gladys renders at most 8 components per widget, 2 of them texts and 4 of them
 buttons: the name and the state share the heading. The buttons are widget actions
@@ -180,7 +183,15 @@ world's y axis goes up), the map is cropped and scaled to fit the 16:9 frame,
 rooms get colors neighbours never share, and the charger and robot are drawn
 from the header positions (millimetres). When the rooms live in the saved map
 (`rism`), that is the one drawn, the robot position still coming from the current
-frame. The image key is a hash of its bytes: Gladys caches an image for an hour
+frame. Over the rooms goes **the path of the robot**, the `tr` string of the
+current frame's trailer as Home Assistant reads it (`pathOf()` in
+`src/dreame/map.js`): `S`, `W` or `M` opens a stroke at an absolute point
+(vacuuming, vacuuming and mopping, mopping only), `L` goes on by a relative step,
+`l` by an absolute one; nothing is drawn between two strokes. Steps shorter than
+half a cell are merged and a path stops at 50,000 points, so a long clean costs
+about a megabyte of memory at most; it is drawn 4 cm wide at the scale of the map,
+white, blue where the robot only mopped, under the charger and the robot. A frame
+without `tr` gives the map as before. The image key is a hash of its bytes: Gladys caches an image for an hour
 by key. The map is re-read only when a dashboard asks for the widget, and only
 if it is older than 50 s while the robot moves (30 min otherwise); the widget is
 then nudged. Its content lives 60 s while the robot moves, 10 min otherwise.

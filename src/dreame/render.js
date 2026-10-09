@@ -15,11 +15,17 @@
 // The grid's rows go up (the world's y axis): the image flips them. Positions
 // are in millimetres, the cell being `gridSize` millimetres wide.
 //
+// Over the rooms, the path of the robot (pathOf()): a white line where it
+// vacuumed, a blue one where it only mopped, 4 cm wide at the scale of the map;
+// then the charger and the robot, on top.
+//
 // No image library: the palette PNG is written by hand (zlib does the work).
 // -----------------------------------------------------------------------------
 
 import { createHash } from 'node:crypto';
 import { deflateSync } from 'node:zlib';
+
+import { pathOf } from './map.js';
 
 const OUTSIDE = 0;
 const WALL = 250;
@@ -48,6 +54,8 @@ const PALETTE = [
   [45, 55, 72], // 10 robot outline
   [47, 179, 68], // 11 charger
   [255, 255, 255], // 12 charger outline
+  [250, 251, 253], // 13 path (vacuuming)
+  [36, 120, 214], // 14 path (mopping only)
 ];
 const INDEX = {
   TRANSPARENT: 0,
@@ -58,6 +66,8 @@ const INDEX = {
   ROBOT_EDGE: 10,
   CHARGER: 11,
   CHARGER_EDGE: 12,
+  PATH: 13,
+  MOP_PATH: 14,
 };
 
 /**
@@ -136,10 +146,11 @@ export function pixelFormatOf(frame, mapV2) {
  * @param {object} map `{ frame, saved }` from fetchMap()
  * @param {object} [options] how to read it
  * @param {boolean} [options.mapV2] whether the model has the v3 maps
+ * @param {boolean} [options.path] whether to draw the path of the robot
  * @returns {{ png: Buffer, key: string, width: number, height: number }|null}
  *   the image and its key (it changes with the bytes), null for an empty map
  */
-export function renderMap({ frame, saved = null }, { mapV2 = false } = {}) {
+export function renderMap({ frame, saved = null }, { mapV2 = false, path = true } = {}) {
   // The rooms are in the saved copy when the current frame carries none.
   const base = saved && !frame.data.seg_inf ? saved : frame;
   const { width, height, grid } = base;
@@ -209,14 +220,29 @@ export function renderMap({ frame, saved = null }, { mapV2 = false } = {}) {
       }
     }
   }
+  // Cell (col, row) spans [left + col * gridSize, left + (col + 1) * gridSize)
+  // millimetres, as Home Assistant maps them; rows flipped.
   const toImage = (position) => ({
-    x: ((position.x - base.left) / base.gridSize - minCol + 0.5) * scale,
-    y: (height - 1 - (position.y - base.top) / base.gridSize - minRow + 0.5) * scale,
+    x: ((position.x - base.left) / base.gridSize - minCol) * scale,
+    y: (height - (position.y - base.top) / base.gridSize - minRow) * scale,
   });
   // A robot is about 35 cm wide: seven 5 cm cells; never smaller than a dot
   // one can spot on a large home.
   const radius = Math.max(7, Math.round((175 / (base.gridSize || 50)) * scale));
   const canvas = { pixels, width: imageWidth, height: imageHeight };
+  if (path) {
+    // The path of the current frame: a saved map has none of its own.
+    const thickness = Math.max(1, Math.round((40 / (base.gridSize || 50)) * scale));
+    for (const stroke of pathOf(frame)) {
+      polyline(
+        canvas,
+        stroke.points,
+        toImage,
+        thickness,
+        stroke.type === 'mop' ? INDEX.MOP_PATH : INDEX.PATH,
+      );
+    }
+  }
   const charger = frame.charger || base.charger;
   const robot = frame.robot ? toImage(frame.robot) : null;
   if (charger) {
@@ -295,6 +321,43 @@ export function roomColors(cells, width, height) {
     colors.set(room, taken.has(color) ? room % ROOM_COLORS.length : color);
   }
   return colors;
+}
+
+/**
+ * A line through points, `thickness` pixels wide.
+ * @param {object} canvas `{ pixels, width, height }`
+ * @param {Array<number>} points `[x0, y0, x1, y1…]`, in millimetres
+ * @param {Function} toImage millimetres -> image pixels
+ * @param {number} thickness the width of the line, in pixels
+ * @param {number} index the palette index
+ */
+export function polyline(canvas, points, toImage, thickness, index) {
+  const { pixels, width, height } = canvas;
+  const half = (thickness - 1) / 2;
+  const dot = (cx, cy) => {
+    const x0 = Math.round(cx - half);
+    const y0 = Math.round(cy - half);
+    for (let y = Math.max(0, y0); y < Math.min(height, y0 + thickness); y += 1) {
+      for (let x = Math.max(0, x0); x < Math.min(width, x0 + thickness); x += 1) {
+        pixels[y * width + x] = index;
+      }
+    }
+  };
+  let from = null;
+  for (let i = 0; i + 1 < points.length; i += 2) {
+    const to = toImage({ x: points[i], y: points[i + 1] });
+    if (!from) {
+      dot(to.x - 0.5, to.y - 0.5);
+    } else {
+      // One dot per pixel along the longer axis.
+      const steps = Math.ceil(Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)));
+      for (let step = 1; step <= steps; step += 1) {
+        const t = step / steps;
+        dot(from.x + (to.x - from.x) * t - 0.5, from.y + (to.y - from.y) * t - 0.5);
+      }
+    }
+    from = to;
+  }
 }
 
 function disc({ pixels, width, height }, center, radius, fill, edge) {

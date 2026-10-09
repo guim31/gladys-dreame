@@ -41,8 +41,18 @@ For each robot of your account:
 - **Room to clean** — the rooms of your robot's map; picking one starts cleaning
   it, and the list goes back to "—" once the room is done.
 - **Several rooms** — a **Selection** switch per room, and the **Clean the
-  selection** button that cleans the rooms switched on, in the order of the map.
-  The selection is kept from one clean to the next.
+  selection** button that cleans the rooms switched on, **in the order you
+  switched them on**, as in the app. To change the order, switch the rooms off,
+  then on again in the order you want (switching on a room already on does not
+  move it). The selection and its order are kept from one clean to the next,
+  Gladys or the integration restarting included.
+
+  > The robots that offer _Customize room cleaning_ (and the fifth generation)
+  > get the rooms in that order, but not their order numbers: sending them stops
+  > those robots. Their firmware may then follow the **cleaning order** set in the
+  > Dreamehome app instead of yours. Watch which order your robot takes: if it is
+  > the app's, set the order you want there.
+
 - **Shortcuts** — one button per shortcut created in the Dreamehome app. It keeps
   all its settings: rooms, order, suction, water flow, passes, mopping.
 - **Consumables** — the remaining life, in percent, of each wear part your robot
@@ -71,13 +81,18 @@ the first robot of the account.
 > wetness, washing frequency and intervals) next to the **Robot vacuum** widget.
 
 - **Robot vacuum** — the name and state of the robot, the **map of the home**
-  (rooms in colors, dock in green, robot in white, ringed in green when on its
+  (rooms in colors, **path of the robot** — white where it vacuumed, blue where it
+  only mopped —, dock in green, robot in white on top, ringed in green when on its
   dock), a list and four buttons: _Clean_, _Pause_, _Dock_, _Locate_. The list
-  gives the battery, then the wear of each part, the most worn first; the **List**
-  setting of the widget turns it into the battery, the current settings (mode,
-  suction, route, wetness), the last clean and the most worn part. _Clean_ cleans
-  the whole home, or only the rooms whose **Selection** switch is on: the button
-  then reads _Clean the selection_. A paused robot offers _Resume_. The map is
+  gives the battery, the **last clean** (area and duration), then the wear of each
+  part, the most worn first; when room runs out, the least worn part is the one
+  left out. The **List** setting of the widget turns it into the battery, the
+  current settings (mode, suction, route, wetness), the last clean and the most
+  worn part. _Clean_ cleans the whole home, or only the rooms whose **Selection**
+  switch is on, in the order they were switched on: the button then reads _Clean
+  the selection_. A paused robot offers _Resume_. The path is the one of the clean
+  under way, or of the last one, as the robot sends it with its map; a robot that
+  sends none keeps the map alone. The map is
   read again every minute while cleaning, every 30 minutes otherwise, and only
   while a dashboard shows it. Room names are not written on it.
 - **Robot setting** — a single setting as big buttons, the current choice ticked,
@@ -125,8 +140,10 @@ and shortcuts are read again every 6 hours, or at once with **Scan**).
   then read the message of the **Error** feature.
 - "Control a device" action: **Cleaning** on _Clean_ to start the robot, **Room to
   clean** on a room, or a **Shortcut** button.
-- Several rooms: switch their **Selection** on, then press **Clean the
-  selection**. The mode and settings are set the same way, before starting.
+- Several rooms: switch their **Selection** on in the order to clean them, then
+  press **Clean the selection**. To force an order, switch every room off first,
+  then on one by one. The mode and settings are set the same way, before
+  starting.
 
 ## Reporting a problem
 

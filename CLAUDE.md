@@ -44,6 +44,15 @@ GladysAssistant/Gladys#3160 ouverte le 03/10/2026 (une ligne par robot, et un pa
 autres fonctionnalités). Le libellé générique d'une fonctionnalité seule de son type n'a pas eu
 d'issue.
 
+Au 09/10/2026, la **1.0.0 est publiée dans le store**. La branche `feat/chris75-requests` (PR
+brouillon, version à décider par Guilhem) porte les trois demandes de Chris75 (fil 10910,
+messages 39 et 40) : ligne « Dernier nettoyage » après la batterie dans la liste par défaut du
+widget Robot, pièces nettoyées dans l'ordre où leurs interrupteurs « Sélection » ont été allumés
+(comme l'intégration Mammotion de prohand pour ses zones), trajet du robot dessiné sur la carte
+(comme l'intégration Roborock de callemand). **À vérifier chez Chris75** : l'ordre réellement
+suivi par son r2449a (voir l'index fixe ci-dessous), la présence de `tr` dans les clés de sa carte
+(ligne `map keys` du journal, `path` du Diagnostic) et la lisibilité du trait.
+
 ## Protocole
 
 - Cloud Dreamehome `<région>.iot.dreame.tech:13267`, repris de Tasshack/dreame-vacuum v2.0.0b25
@@ -77,6 +86,25 @@ d'issue.
   (roues à 0 % sur r2449a).
 - Carte dessinée sans dépendance (`src/dreame/render.js`, PNG palette écrit à la main), relue
   seulement quand un tableau de bord la demande : 50 s si le robot roule, 30 min sinon.
+- **Ordre des pièces** : `robot.picks` est un `Set`, donc dans l'ordre d'insertion, enregistré
+  tel quel (tableau) dans `/data/robots.json`. Éteindre puis rallumer met la pièce en dernier ;
+  rallumer une pièce déjà allumée (scène qui repasse à 1) ne la déplace pas. `buildCommand`
+  (`clean-rooms`) suit cet ordre, plus celui de la carte, et le widget Nettoyage express l'affiche.
+  Les robots à `4.26` (personnaliser par pièce, dont le r2449a) et `gen5` reçoivent **l'index 1
+  partout** (Home Assistant fait de même : un autre index les bloque) : l'ordre ne passe que par
+  celui de la liste `selects`, et leur micrologiciel peut suivre l'ordre de nettoyage de l'appli
+  (`cleanOrder` / `cleanareaorder` de la carte, que l'intégration n'écrit pas). La doc le dit.
+- **Trajet** : chaîne `tr` du JSON de la trame courante (jamais de la carte sauvegardée), lue par
+  `pathOf()` comme Home Assistant : `S` aspiration, `W` aspiration + lavage, `M` lavage seul
+  ouvrent un tracé en absolu, `L` pas relatif, `l` point absolu (trames P) ; rien entre deux
+  tracés. Pas de moins d'une demi-case fusionnés, 50 000 points au plus. Dessiné 4 cm de large,
+  blanc (bleu pour `M`), sous la base et le robot. Pas de `tr` : carte inchangée.
+- `toImage()` de `render.js` suit `to_img` de Home Assistant (case `col` = `[left + col·g,
+left + (col+1)·g)`) : jusqu'à la 1.0.0 il décalait d'une demi-case vers la droite et le haut,
+  invisible pour le disque du robot mais pas pour un trajet qui longe un mur.
+- La liste par défaut du widget Robot : batterie, dernier nettoyage (`lastCleanRow()`, absent avant
+  un premier nettoyage), usure de la plus usée à la moins usée ; la coupe à 10 lignes ôte donc
+  la moins usée. Toujours un seul composant `status` : le budget du cœur ne bouge pas.
 - « Cartographier » est volontairement refusé : la cartographie rapide peut écraser la carte.
 - Widget Robot : la batterie ouvre la liste, parce que le cœur range toute tuile (`value`,
   `gauge`) **au-dessus** de l'image, sur une ligne à elle. La liste montre par défaut l'usure de

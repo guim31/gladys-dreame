@@ -22,12 +22,12 @@ const plainMqtt = {
   connect: (url, options) => mqttLibrary.connect(url.replace('mqtts://', 'mqtt://'), options),
 };
 
-function setup(fake, config, timings = {}) {
+function setup(fake, config, timings = {}, dataDir = null) {
   const gladys = createFakeGladys({ config });
   const dreame = new DreameIntegration({
     gladys,
     logger: silentLogger,
-    dataDir: mkdtempSync(path.join(tmpdir(), 'gladys-dreame-')),
+    dataDir: dataDir || mkdtempSync(path.join(tmpdir(), 'gladys-dreame-')),
     mqtt: plainMqtt,
     createCloud: (options) => new DreameCloud({ ...options, baseUrl: fake.base }),
     timings: { REFRESH_AFTER_COMMAND_MS: [], ...timings },
@@ -203,16 +203,24 @@ test('a linked account, from discovery to commands', async (t) => {
     await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 1);
     await dreame.setValue(device, { external_id: ids.feature('room-pick-1') }, 1);
     assert.equal(statesOf('room-pick-4').at(-1).state, 1);
-    // kept across restarts
-    assert.deepEqual(dreame.store.get(ROBOT.did).picks.sort(), ['1', '4']);
+    // kept across restarts, in the order picked
+    assert.deepEqual(dreame.store.get(ROBOT.did).picks, ['4', '1']);
     await dreame.setValue(device, { external_id: ids.feature('clean-rooms') }, 1);
-    const clean = fake.state.commands.at(-1).params.in;
-    assert.equal(clean[0].value, 18);
-    // in the order of the map, not of the clicks
-    assert.deepEqual(
-      JSON.parse(clean[1].value).selects.map((entry) => entry[0]),
-      [1, 4],
-    );
+    const rooms = () =>
+      JSON.parse(fake.state.commands.at(-1).params.in[1].value).selects.map((entry) => entry[0]);
+    assert.equal(fake.state.commands.at(-1).params.in[0].value, 18);
+    // in the order of the clicks, as in the app
+    assert.deepEqual(rooms(), [4, 1]);
+    // switched on again, a room already on keeps its place…
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 1);
+    await dreame.setValue(device, { external_id: ids.feature('clean-rooms') }, 1);
+    assert.deepEqual(rooms(), [4, 1]);
+    // … switched off then on, it goes last
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 0);
+    await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 1);
+    assert.deepEqual(dreame.store.get(ROBOT.did).picks, ['1', '4']);
+    await dreame.setValue(device, { external_id: ids.feature('clean-rooms') }, 1);
+    assert.deepEqual(rooms(), [1, 4]);
     await dreame.setValue(device, { external_id: ids.feature('room-pick-1') }, 0);
     await dreame.setValue(device, { external_id: ids.feature('room-pick-4') }, 0);
   });
@@ -458,4 +466,55 @@ test('the language renames the rooms and the error text', async (t) => {
     ['—', 'Chambre de Léa', 'Kitchen', 'Living room', 'Primary bedroom 2'],
   );
   assert.equal(gladys.states.at(-1).text, 'No error');
+});
+
+test('the order of the rooms picked survives a restart of the container', async (t) => {
+  const fake = await startFakeDreame();
+  const dataDir = mkdtempSync(path.join(tmpdir(), 'gladys-dreame-'));
+  const first = setup(fake, storedSession(), {}, dataDir);
+  t.after(async () => {
+    first.dreame.stopAll();
+    await fake.close();
+  });
+  await first.dreame.onConnected();
+  first.gladys.devices.push(first.gladys.discovered.at(-1)[0]);
+  const ids = first.gladys.externalIds('vacuum', ROBOT.did);
+  for (const room of ['2', '4', '1']) {
+    await first.dreame.setValue(
+      first.gladys.devices[0],
+      { external_id: ids.feature(`room-pick-${room}`) },
+      1,
+    );
+  }
+  first.dreame.stopAll();
+
+  // A new container: the same /data, a new integration.
+  const second = setup(fake, first.gladys.config, {}, dataDir);
+  t.after(() => second.dreame.stopAll());
+  await second.dreame.onConnected();
+  second.gladys.devices.push(second.gladys.discovered.at(-1)[0]);
+  await second.dreame.onDeviceCreated(second.gladys.devices[0]);
+  const picked = (room) =>
+    second.gladys.states
+      .filter((state) => state.device_feature_external_id === ids.feature(`room-pick-${room}`))
+      .at(-1).state;
+  assert.deepEqual(['1', '2', '4'].map(picked), [1, 1, 1]);
+  await second.dreame.setValue(
+    second.gladys.devices[0],
+    { external_id: ids.feature('clean-rooms') },
+    1,
+  );
+  assert.deepEqual(
+    JSON.parse(fake.state.commands.at(-1).params.in[1].value).selects.map((entry) => entry[0]),
+    [2, 4, 1],
+  );
+  // The selection the widgets show follows the same order.
+  const quick = second.dreame.widgetContent('quick_clean', {
+    settings: { button_1: 'Clean the selection' },
+    language: 'en',
+  });
+  assert.equal(
+    quick.components.find((c) => c.type === 'status').items[0].value,
+    'Kitchen, Primary bedroom 2, Living room',
+  );
 });

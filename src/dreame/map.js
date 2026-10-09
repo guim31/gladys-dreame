@@ -131,6 +131,76 @@ export function decodeMapFrame(raw, { key = null, iv = null } = {}) {
   };
 }
 
+// The path of the robot (`tr` in the trailer), as the Home Assistant
+// integration reads it: `S`, `W` or `M` starts a stroke at an absolute point
+// (vacuuming, vacuuming and mopping, mopping), `L` goes on by a relative step,
+// `l` by an absolute point (partial frames). Between two strokes the robot
+// moved without the path saying so: nothing is drawn there.
+const PATH_STEP = /([MWSLl])(-?\d+),(-?\d+)/g;
+const STROKE_TYPES = { S: 'sweep', W: 'sweep-mop', M: 'mop' };
+// Bounds on what one map may cost: steps shorter than half a cell (25 mm) are
+// merged, they add nothing at the scale of the widget, and a path is cut
+// beyond MAX_PATH_POINTS points (over a kilometre).
+const PATH_MIN_STEP_MM = 25;
+export const MAX_PATH_POINTS = 50000;
+
+/**
+ * The path of the robot in a decoded map frame.
+ * @param {object} frame the result of decodeMapFrame()
+ * @returns {Array<{ type: string, points: Array<number> }>} the strokes, each
+ *   a type (`sweep`, `sweep-mop` or `mop`) and its points as `[x0, y0, x1, y1…]`
+ *   in millimetres, like the robot position; empty when the frame has none
+ */
+export function pathOf(frame) {
+  const tr = frame && frame.data && frame.data.tr;
+  if (typeof tr !== 'string' || tr.length === 0) {
+    return [];
+  }
+  const strokes = [];
+  let stroke = null;
+  let x = 0;
+  let y = 0;
+  let count = 0;
+  const keep = () => {
+    const { points } = stroke;
+    const n = points.length;
+    const lastStep =
+      n >= 4
+        ? Math.abs(points[n - 2] - points[n - 4]) + Math.abs(points[n - 1] - points[n - 3])
+        : Infinity;
+    if (lastStep < PATH_MIN_STEP_MM) {
+      // The last point is too close to the one before: it moves on instead,
+      // so the stroke still ends where the robot is.
+      points[n - 2] = x;
+      points[n - 1] = y;
+    } else {
+      points.push(x, y);
+      count += 1;
+    }
+  };
+  PATH_STEP.lastIndex = 0;
+  let match;
+  while ((match = PATH_STEP.exec(tr)) !== null && count < MAX_PATH_POINTS) {
+    const [, operator, dx, dy] = match;
+    if (operator === 'L') {
+      x += Number(dx);
+      y += Number(dy);
+    } else {
+      x = Number(dx);
+      y = Number(dy);
+    }
+    if (STROKE_TYPES[operator]) {
+      stroke = { type: STROKE_TYPES[operator], points: [] };
+      strokes.push(stroke);
+    }
+    // A step before any stroke only moves the pen.
+    if (stroke) {
+      keep();
+    }
+  }
+  return strokes.filter((entry) => entry.points.length >= 4);
+}
+
 /**
  * The rooms of a decoded map frame, as the robot describes them.
  * @param {object} frame the result of decodeMapFrame()
