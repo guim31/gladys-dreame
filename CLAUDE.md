@@ -136,6 +136,10 @@ left + (col+1)·g)`) : jusqu'à la 1.0.0 il décalait d'une demi-case vers la dr
 - Mêmes étapes que la CI, dans le même ordre : `npm ci`, `npm run format:check`, `npm run lint`,
   `npm test` (`node --test`). Prettier contrôle **aussi le Markdown** : lancer `npm run format`
   après avoir modifié ce fichier ou le README, sinon la CI tombe.
+- **Image de base** : `public.ecr.aws/docker/library/node:24-alpine` (miroir officiel ECR Public,
+  même empreinte) et non `node:24-alpine` de Docker Hub, qui refuse en 429 les pulls anonymes des
+  runners GitHub ; `build.yml` tire de même QEMU et BuildKit de `mirror.gcr.io`. Changé par
+  l'orchestrateur le 10/10/2026 (releases 1.0.1 de Pirate Weather et Roku perdues ainsi la veille).
 - La CI tourne en Node 24. Une session cloud a Node 22 par défaut, ce qui suffit (`engines` :
   `>=20`).
 - Une session de code n'a **ni instance Gladys ni appareil réel**. La suite de tests, le lint et
