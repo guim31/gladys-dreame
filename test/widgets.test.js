@@ -505,7 +505,9 @@ test('the maintenance widget: the most worn parts first, the model ones only', (
 test('texts are cut to the bounds of the core, the language falls back to English', () => {
   assert.equal(fit('Nettoyage de toute la maison après le dîner', 24), 'Nettoyage de toute la m…');
   assert.equal(fit('Court', 24), 'Court');
-  assert.equal(widgetLanguage('de'), 'en');
+  assert.equal(widgetLanguage('de'), 'de');
+  assert.equal(widgetLanguage('es'), 'es');
+  assert.equal(widgetLanguage('it'), 'en');
   assert.equal(widgetLanguage('fr'), 'fr');
   assert.deepEqual(validateWidgetContent(messageContent('Aucun robot')), []);
 });

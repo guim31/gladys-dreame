@@ -234,7 +234,7 @@ export function roomsOf(frame) {
  * (numbered from the second room of that type), else the name the user gave,
  * else a generic "Room <id>".
  * @param {object} room a room from roomsOf()
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {string} the room name
  */
 export function roomName(room, language) {
@@ -251,11 +251,11 @@ export function roomName(room, language) {
 /**
  * The rooms with their names, sorted by name for the room selector.
  * @param {Array} rooms rooms from roomsOf()
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {Array<{ id: number, name: string }>} the named rooms
  */
 export function namedRooms(rooms, language) {
-  const collator = new Intl.Collator(language === 'en' ? 'en' : 'fr', { numeric: true });
+  const collator = new Intl.Collator(language, { numeric: true });
   return rooms
     .map((room) => ({ id: room.id, name: roomName(room, language) }))
     .sort((a, b) => collator.compare(a.name, b.name) || a.id - b.id);

@@ -67,6 +67,12 @@ suivi par son r2449a (voir l'index fixe ci-dessous), la présence de `tr` dans l
 
 ## Choix de conception non évidents
 
+- **Quatre langues** (11/10/2026) : français, anglais, allemand et espagnol, celles de
+  l'interface de Gladys, partout (manifeste, `TEXTS` de `src/i18n.js`, `src/messages.js`, retours
+  d'action de widget). L'allemand tutoie (« du »), l'espagnol vouvoie (« usted ») : décision de
+  Guilhem. `test/i18n.test.js` refuse un objet sans les quatre langues, un texte vide ou trop long
+  et toute forme de politesse allemande (« Sie », « Ihr »…). Le Diagnostic et les journaux restent
+  en anglais (collés sur le forum ou GitHub). Le store ne publie que `docs/en.md` et `docs/fr.md`.
 - Mode de nettoyage Gladys = puissance d'aspiration (4.4), comme Roborock et Xiaomi. Elle est
   aussi exposée en `text/select` Silencieux/Standard/Intense/Max : la liste clean-mode de Gladys,
   sept choix figés, déroutait le testeur.

@@ -55,7 +55,7 @@ import {
 import { namedRooms } from './dreame/map.js';
 import { tracksConsumable } from './dreame/models.js';
 import { cleaningModeOf, routeAllowed, washFrequencyOf, washValueOf } from './dreame/mopping.js';
-import { describeError, texts } from './i18n.js';
+import { describeError, LANGUAGES, texts } from './i18n.js';
 
 /** Widget keys, declared in the manifest `widgets` (forever: never rename). */
 export const WIDGET = {
@@ -115,12 +115,13 @@ const BATTERY_EMPTY = 10;
 const BATTERY_LOW = 20;
 
 /**
- * The language of a widget: Gladys sends the user's, the texts exist in two.
+ * The language of a widget: Gladys sends the user's, English when the texts
+ * do not exist in it.
  * @param {string} language the user's language
- * @returns {string} `fr` or `en`
+ * @returns {string} `fr`, `en`, `de` or `es`
  */
 export function widgetLanguage(language) {
-  return language === 'fr' ? 'fr' : 'en';
+  return LANGUAGES.includes(language) ? language : 'en';
 }
 
 /**
@@ -145,7 +146,7 @@ function toNumber(value) {
  * The state of a robot in words: its own state when it says more than the
  * Gladys one (drying the mops…), the error when there is one.
  * @param {object} view the robot, see robotContent()
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {string|null} the state, null when unknown
  */
 export function stateText(view, language) {
@@ -247,7 +248,7 @@ export function cleansSelection(robot) {
  * The row of the last clean (area and duration), as both lists of the robot
  * widget show it.
  * @param {object} view the robot, see robotContent()
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {object|null} the row, null before a first clean
  */
 export function lastCleanRow(view, language) {
@@ -269,7 +270,7 @@ export function lastCleanRow(view, language) {
  * The rooms picked (the "Selection" switches), in the order they were switched
  * on: the order the clean of the selection follows.
  * @param {object} view the robot (`rooms`, `picks`)
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {Array<{ id: number, name: string }>} the rooms picked, named
  */
 export function pickedRooms(view, language) {
@@ -336,7 +337,7 @@ function settingRows(view, language) {
  * @param {string|null} view.mapKey the key of its map image
  * @param {Array<object>} view.rooms its rooms (`{ id }`)
  * @param {Set<string>} view.picks the ids of the rooms picked
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @param {object} [settings] the widget settings (`list`: a ROBOT_LISTS value)
  * @returns {object} the widget content
  */
@@ -406,7 +407,7 @@ function normalizeName(name) {
  * @param {object} view the robot, see robotContent() (+ `rooms`, `shortcuts`,
  *   `picks`)
  * @param {object} settings the widget settings
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {{ buttons: Array<object>, unknown: Array<string> }} the buttons
  *   (`{ label, params }`, params carrying `kind`: `shortcut` with `id`, `rooms`
  *   with `rooms`, or `selection`) and the names matched to nothing
@@ -427,15 +428,16 @@ export function quickButtons(view, settings, language) {
     };
   }
   const rooms = new Map();
-  for (const lang of ['fr', 'en']) {
+  for (const lang of LANGUAGES) {
     for (const room of namedRooms(view.rooms || [], lang)) {
       rooms.set(normalizeName(room.name), room);
     }
   }
   const selection = new Set(
-    ['fr', 'en']
-      .flatMap((lang) => [texts(lang).widget.cleanSelection, texts(lang).widget.selection])
-      .map(normalizeName),
+    LANGUAGES.flatMap((lang) => [
+      texts(lang).widget.cleanSelection,
+      texts(lang).widget.selection,
+    ]).map(normalizeName),
   );
   const buttons = [];
   const unknown = [];
@@ -461,7 +463,7 @@ export function quickButtons(view, settings, language) {
  * The names a quick button recognizes: the rooms as Gladys shows them, the
  * shortcuts, then "clean the selection" — each once.
  * @param {object} view the robot, see quickButtons()
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {Array<string>} the names
  */
 export function knownNames(view, language) {
@@ -484,7 +486,7 @@ export function knownNames(view, language) {
  * The "quick_clean" widget.
  * @param {object} view the robot, see quickButtons()
  * @param {object} settings the widget settings
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {object} the widget content
  */
 export function quickContent(view, settings, language) {
@@ -585,7 +587,7 @@ export function isUnderWay(view, params) {
  * The choices of one setting, for the robot_setting widget.
  * @param {object} view the robot, see robotContent()
  * @param {string} setting a SETTINGS key
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {{ caption: string, choices: Array<object> }|null} the current value
  *   in words and the buttons (`{ label, value, active }`), null when the robot
  *   has no such setting
@@ -708,7 +710,7 @@ export function settingChoices(view, setting, language) {
  * one lit.
  * @param {object} view the robot, see robotContent()
  * @param {object} settings the widget settings (`setting`: a SETTINGS key)
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {object} the widget content
  */
 export function settingContent(view, settings, language) {
@@ -768,7 +770,7 @@ export function widgetCommand(actionKey, params = {}) {
  * @param {string} actionKey the key of the button
  * @param {object} params its params
  * @param {object} robot the robot (`shortcuts`, `rooms`)
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {string} the message
  */
 export function widgetMessage(actionKey, params, robot, language) {
@@ -823,7 +825,7 @@ function choiceLabel(setting, value, language) {
  * The "maintenance" widget: the three most worn parts as gauges, then every
  * part, the most worn first.
  * @param {object} view the robot, see robotContent()
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {object} the widget content
  */
 export function maintenanceContent(view, language) {

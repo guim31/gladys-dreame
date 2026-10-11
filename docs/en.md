@@ -128,7 +128,9 @@ you anything. The **Unlink the account** action erases everything.
 > account here.
 
 The **Language of the names** setting picks the language of the feature names, room
-names and error messages. Feature names are set when the device is created.
+names and error messages: French, English, German or Spanish. Feature names are set
+when the device is created. The dashboard widgets and the messages of this page
+follow the language of your Gladys account.
 
 When an update of the integration adds features, or when you create a shortcut or
 a room in the app, the **Discovery** tab offers to **update** the device (rooms

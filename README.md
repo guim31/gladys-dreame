@@ -200,8 +200,10 @@ change of a burst sent at the end of Gladys' 10 s window rather than dropped.
 
 ## Configuration
 
-Nothing but the **language** of the names written into Gladys (French by default:
-Gladys does not tell a device integration the language of its users). The account
+Nothing but the **language** of the names written into Gladys: French (the default,
+as Gladys does not tell a device integration the language of its users), English,
+German or Spanish. Widgets and Configuration messages exist in the same four
+languages and follow the user's. The account
 is linked from the actions:
 
 | Action             | What it does                                                          |

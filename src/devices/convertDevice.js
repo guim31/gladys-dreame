@@ -42,7 +42,7 @@ export function didOf(gladys, externalId) {
 /**
  * @param {object} gladys the SDK
  * @param {object} robot the robot, as discovery learned it
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {object} the Gladys discovered device
  */
 export function convertDevice(gladys, robot, language) {

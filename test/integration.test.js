@@ -109,6 +109,8 @@ test('a linked account, from discovery to commands', async (t) => {
       message: {
         en: `Linked account: ${ACCOUNT.username} (Europe).`,
         fr: `Compte lié : ${ACCOUNT.username} (Europe).`,
+        de: `Verknüpftes Konto: ${ACCOUNT.username} (Europa).`,
+        es: `Cuenta vinculada: ${ACCOUNT.username} (Europa).`,
       },
     });
   });
@@ -249,7 +251,12 @@ test('a linked account, from discovery to commands', async (t) => {
     });
     const button = quick.components.find((c) => c.type === 'button');
     const message = await dreame.widgetAction(button.action.key, button.action.params);
-    assert.deepEqual(message, { en: 'Cleaning started: Kitchen', fr: 'Nettoyage lancé : Cuisine' });
+    assert.deepEqual(message, {
+      fr: 'Nettoyage lancé : Cuisine',
+      en: 'Cleaning started: Kitchen',
+      de: 'Reinigung gestartet: Küche',
+      es: 'Limpieza iniciada: Cocina',
+    });
     const clean = fake.state.commands.at(-1).params.in;
     assert.deepEqual(
       JSON.parse(clean[1].value).selects.map((entry) => entry[0]),
@@ -272,6 +279,8 @@ test('a linked account, from discovery to commands', async (t) => {
     assert.deepEqual(picked, {
       en: 'Cleaning of the selection started',
       fr: 'Nettoyage de la sélection lancé',
+      de: 'Reinigung der Auswahl gestartet',
+      es: 'Limpieza de la selección iniciada',
     });
     const selection = fake.state.commands.at(-1).params.in;
     assert.equal(selection[0].value, 18);
@@ -285,6 +294,8 @@ test('a linked account, from discovery to commands', async (t) => {
     assert.deepEqual(await dreame.widgetAction('start', params), {
       en: 'Cleaning started',
       fr: 'Nettoyage lancé',
+      de: 'Reinigung gestartet',
+      es: 'Limpieza iniciada',
     });
     const full = fake.state.commands.at(-1).params;
     assert.deepEqual([full.siid, full.aiid], [2, 1]);
@@ -300,7 +311,12 @@ test('a linked account, from discovery to commands', async (t) => {
     assert.equal(quiet.icon, 'circle');
     assert.equal(quiet.style, undefined);
     const said = await dreame.widgetAction(quiet.action.key, quiet.action.params);
-    assert.deepEqual(said, { en: 'Suction: Quiet', fr: 'Aspiration : Silencieux' });
+    assert.deepEqual(said, {
+      en: 'Suction: Quiet',
+      fr: 'Aspiration : Silencieux',
+      de: 'Saugen: Leise',
+      es: 'Succión: Silencioso',
+    });
     assert.deepEqual(fake.state.commands.at(-1).params, [
       { did: ROBOT.did, siid: 4, piid: 4, value: 0 },
     ]);
