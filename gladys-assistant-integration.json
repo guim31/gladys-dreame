@@ -9,8 +9,8 @@
     "de": "Dreamehome-Saugroboter: Reinigung, Saugleistung, Wischen, Räume, Verknüpfungen, Verschleißteile.",
     "es": "Robots aspiradores Dreamehome: limpieza, succión, fregado, habitaciones, atajos, consumibles."
   },
-  "version": "1.1.0",
-  "docker_image": "ghcr.io/guim31/gladys-dreame:1.1.0",
+  "version": "1.2.0",
+  "docker_image": "ghcr.io/guim31/gladys-dreame:1.2.0",
   "gladys_version": ">=5.1.0",
   "cover_image": "https://raw.githubusercontent.com/guim31/gladys-dreame/main/cover.jpg",
   "transports": ["cloud"],
