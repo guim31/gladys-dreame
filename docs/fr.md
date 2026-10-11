@@ -144,8 +144,9 @@ compte** efface tout.
 > du compte), puis liez le compte ici.
 
 Le paramètre **Langue des noms** choisit la langue des noms de fonctionnalités, des
-pièces et des messages d'erreur. Les noms de fonctionnalités sont fixés à la
-création de l'appareil.
+pièces et des messages d'erreur : français, anglais, allemand ou espagnol. Les noms
+de fonctionnalités sont fixés à la création de l'appareil. Les widgets du tableau de
+bord et les messages de cette page suivent la langue de votre compte Gladys.
 
 Quand une mise à jour de l'intégration ajoute des fonctionnalités, ou que vous
 créez un raccourci ou une pièce dans l'application, l'onglet **Découverte**

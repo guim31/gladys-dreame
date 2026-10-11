@@ -129,7 +129,9 @@ test('the session survives a round trip through the config, and can be erased', 
 
 test('the language comes from the config, French by default', () => {
   assert.equal(readLanguage({ [CONFIG_KEYS.LANGUAGE]: 'en' }), 'en');
-  assert.equal(readLanguage({ [CONFIG_KEYS.LANGUAGE]: 'de' }), 'fr');
+  assert.equal(readLanguage({ [CONFIG_KEYS.LANGUAGE]: 'de' }), 'de');
+  assert.equal(readLanguage({ [CONFIG_KEYS.LANGUAGE]: 'es' }), 'es');
+  assert.equal(readLanguage({ [CONFIG_KEYS.LANGUAGE]: 'it' }), 'fr');
   assert.equal(readLanguage(), 'fr');
 });
 

@@ -45,7 +45,7 @@ import { renderMap } from './dreame/render.js';
 import { fetchMap } from './dreame/rooms.js';
 import { mergeSettings, parseSettings } from './dreame/settings.js';
 import { parseShortcuts } from './dreame/shortcuts.js';
-import { texts } from './i18n.js';
+import { LANGUAGES, texts } from './i18n.js';
 import { MESSAGES } from './messages.js';
 import {
   WIDGET,
@@ -108,9 +108,11 @@ export const TIMINGS = {
 // the ones still in a dashboard's cache).
 const MAX_IMAGES = 20;
 
-const DEGRADED_MESSAGE = {
+export const DEGRADED_MESSAGE = {
   en: 'Real-time updates unavailable: the robot is refreshed every minute.',
   fr: 'Mises à jour en temps réel indisponibles : le robot est actualisé toutes les minutes.',
+  de: 'Echtzeit-Updates nicht verfügbar: Der Roboter wird jede Minute aktualisiert.',
+  es: 'Actualizaciones en tiempo real no disponibles: el robot se actualiza cada minuto.',
 };
 
 /**
@@ -1126,7 +1128,7 @@ export class DreameIntegration {
    * @param {string} actionKey the key of the button
    * @param {object} params what the content declared with it (`did`, and what
    *   the button does, see widgetCommand())
-   * @returns {Promise<object>} the message shown, in both languages
+   * @returns {Promise<object>} the message shown, in every language
    */
   async widgetAction(actionKey, params = {}) {
     const robot = this.robots.get(String(params.did));
@@ -1150,10 +1152,9 @@ export class DreameIntegration {
     } else {
       await this.runCommand(robot, command.code, command.value);
     }
-    return {
-      en: widgetMessage(actionKey, asked, robot, 'en'),
-      fr: widgetMessage(actionKey, asked, robot, 'fr'),
-    };
+    return Object.fromEntries(
+      LANGUAGES.map((language) => [language, widgetMessage(actionKey, asked, robot, language)]),
+    );
   }
 
   /**

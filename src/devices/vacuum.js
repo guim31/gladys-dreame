@@ -154,7 +154,7 @@ function selectOptions(entries, labels) {
  * @param {object} [robot.mopping] moppingOf() of the robot
  * @param {object|null} [robot.caps] modelCapabilities() of the robot (the wear
  *   parts it really has)
- * @param {string} language `fr` or `en`
+ * @param {string} language `fr`, `en`, `de` or `es`
  * @returns {Array} Gladys device features
  */
 export function buildVacuumFeatures(
@@ -548,7 +548,7 @@ export function runModeOf(props, gladysState, newNumbering) {
  * @param {Map<string, *>} props the robot properties
  * @param {object} context how to read them
  * @param {boolean} context.newNumbering whether the robot numbers its states the new way
- * @param {string} context.language `fr` or `en`
+ * @param {string} context.language `fr`, `en`, `de` or `es`
  * @param {object} [context.mopping] moppingOf() of the robot
  * @param {object} [context.washValues] washValuesOf() of the robot
  * @param {Array} [context.rooms] `[{ id }]`, for the room switches
