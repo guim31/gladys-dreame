@@ -6,7 +6,8 @@
 //   - discovery: the robots of the account, what each one supports (probed
 //     property by property), its rooms (from its map) and its shortcuts;
 //   - live states: every change the robot pushes on its real-time channel is
-//     published at once, the Gladys poll only being a safety net; a state is
+//     published at once, a refresh every minute being the safety net (an own
+//     timer: Gladys 5.2.0 may never poll a robot, see poll()); a state is
 //     published when it changes, and only for the robots created in Gladys;
 //   - commands, and a quick refresh after each of them;
 //   - the transport badge: cloud, degraded when the real-time channel is down,
@@ -22,6 +23,7 @@ import {
   CONSUMABLES,
   DISCOVERY_PROPERTIES,
   FEATURE_CODES,
+  POLL_FREQUENCY,
   PROP,
   ROOM_SELECTION_NONE,
   ROUTE_SETTING,
@@ -85,6 +87,11 @@ export const BASE_CAPABILITIES = [
 export const TIMINGS = {
   // Rooms and shortcuts are re-read that often (they change in the app).
   REDISCOVERY_MS: 6 * 60 * 60 * 1000,
+  // The safety-net refresh of the robots created in Gladys (the real-time
+  // channel pushes the changes); a Gladys poll arriving within FRESH_MS of the
+  // last refresh of a robot is skipped, so the two never double the work.
+  POLL_MS: POLL_FREQUENCY,
+  FRESH_MS: POLL_FREQUENCY - 10 * 1000,
   // After a failed start (cloud down), retry from this delay, doubled up to the max.
   RETRY_MIN_MS: 60 * 1000,
   RETRY_MAX_MS: 30 * 60 * 1000,
@@ -184,8 +191,11 @@ export class DreameIntegration {
     this.lastDiscovered = null;
     this.discovering = null;
     this.rediscoveryTimer = null;
+    this.pollTimer = null;
     this.retryTimer = null;
     this.retryDelay = null;
+    this.discoveryFailing = false;
+    this.accountSummary = null;
     this.persistedSession = null;
     this.status = { connected: false, message: undefined };
     this.images = new Map();
@@ -240,8 +250,10 @@ export class DreameIntegration {
     }
     this.nudges.clear();
     clearInterval(this.rediscoveryTimer);
+    clearInterval(this.pollTimer);
     clearTimeout(this.retryTimer);
     this.rediscoveryTimer = null;
+    this.pollTimer = null;
     this.retryTimer = null;
     for (const robot of this.robots.values()) {
       this.stopRobot(robot);
@@ -314,13 +326,24 @@ export class DreameIntegration {
     try {
       await this.discover();
       this.retryDelay = null;
+      if (this.discoveryFailing) {
+        this.discoveryFailing = false;
+        this.logger.info('Dreamehome cloud reachable again');
+      }
       await this.reportStatus(true, this.linkedMessage());
       this.startRediscovery();
+      this.startPolling();
     } catch (err) {
       if (err instanceof DreameAuthError) {
         return;
       }
-      this.logger.error(`Dreamehome discovery failed: ${err.message}`);
+      // Once when it starts failing, not at every retry.
+      if (this.discoveryFailing) {
+        this.logger.debug(`Dreamehome discovery failed again: ${err.message}`);
+      } else {
+        this.discoveryFailing = true;
+        this.logger.error(`Dreamehome discovery failed: ${err.message}`);
+      }
       await this.reportStatus(false, MESSAGES.cloudUnreachable(err.message));
       // The cloud may come back: retry, less and less often.
       this.retryDelay = Math.min(
@@ -344,6 +367,48 @@ export class DreameIntegration {
     }
     this.rediscoveryTimer = setInterval(() => this.refreshAccount(), this.timings.REDISCOVERY_MS);
     this.rediscoveryTimer.unref?.();
+  }
+
+  /**
+   * The safety-net refresh, every minute, of the robots created in Gladys. It
+   * does not rely on the Gladys poll: Gladys 5.2.0 only polls a device created
+   * with `should_poll: true`, and never updates that flag on a device already
+   * created (GladysAssistant/Gladys#3198).
+   */
+  startPolling() {
+    if (this.pollTimer) {
+      return;
+    }
+    this.pollTimer = setInterval(() => {
+      this.pollAll().catch((err) => this.logger.debug(`Refresh round failed: ${err.message}`));
+    }, this.timings.POLL_MS);
+    this.pollTimer.unref?.();
+  }
+
+  async pollAll() {
+    if (!this.cloud || this.authFailure) {
+      return;
+    }
+    for (const robot of this.robots.values()) {
+      if (!robot.capabilities || !this.createdDevice(robot) || this.isFresh(robot)) {
+        continue;
+      }
+      try {
+        await this.refresh(robot);
+      } catch (err) {
+        if (err instanceof DreameAuthError) {
+          return;
+        }
+      }
+    }
+  }
+
+  /**
+   * @param {object} robot the robot
+   * @returns {boolean} whether it was refreshed (or tried) less than FRESH_MS ago
+   */
+  isFresh(robot) {
+    return Date.now() - (robot.refreshedAt || 0) < this.timings.FRESH_MS;
   }
 
   /**
@@ -527,10 +592,16 @@ export class DreameIntegration {
       }
     }
     this.store.retain(seen);
-    this.logger.info(
+    // Logged when it changes: the account is read again every 6 hours.
+    const summary =
       `${this.robots.size} robot vacuum(s) on the account` +
-        (this.otherModels.length ? `, other devices ignored: ${this.otherModels.join(', ')}` : ''),
-    );
+      (this.otherModels.length ? `, other devices ignored: ${this.otherModels.join(', ')}` : '');
+    if (summary !== this.accountSummary) {
+      this.accountSummary = summary;
+      this.logger.info(summary);
+    } else {
+      this.logger.debug(summary);
+    }
     await this.publishDevices();
     for (const robot of this.robots.values()) {
       await this.publishTransport(robot);
@@ -567,6 +638,9 @@ export class DreameIntegration {
         roomSelectorReady: false,
         refreshTimers: [],
         mapWaiters: [],
+        refreshedAt: 0,
+        refreshFailing: false,
+        roomsLogged: false,
       };
       this.robots.set(did, robot);
     }
@@ -645,7 +719,14 @@ export class DreameIntegration {
         robot.rooms = map.rooms;
         this.keepMap(robot, map);
         roomsRead = true;
-        this.logger.info(`Rooms of "${robot.name}": ${trace.join(' | ')}`);
+        // In full once per start (the testers paste it), then at the debug level.
+        const line = `Rooms of "${robot.name}": ${trace.join(' | ')}`;
+        if (robot.roomsLogged) {
+          this.logger.debug(line);
+        } else {
+          robot.roomsLogged = true;
+          this.logger.info(line);
+        }
       } catch (err) {
         if (err instanceof DreameAuthError) {
           throw err;
@@ -832,15 +913,23 @@ export class DreameIntegration {
   }
 
   /**
-   * Gladys polls a robot: read its status, publish what changed.
+   * Gladys polls a robot: read its status, publish what changed. Kept as a
+   * fallback of the own timer (startPolling()): skipped when the robot was
+   * refreshed less than FRESH_MS ago.
    * @param {object} device the Gladys device
    */
   async poll(device) {
-    await this.refresh(this.robotOf(device));
+    const robot = this.robotOf(device);
+    this.requireCloud();
+    if (this.isFresh(robot)) {
+      return;
+    }
+    await this.refresh(robot);
   }
 
   async refresh(robot) {
     const cloud = this.requireCloud();
+    robot.refreshedAt = Date.now();
     const keys = [
       ...STATUS_PROPERTIES,
       ...CONSUMABLES.map((consumable) => consumable.prop).filter((key) =>
@@ -852,10 +941,21 @@ export class DreameIntegration {
       this.applyProps(robot, props);
       robot.reachable = true;
       robot.lastError = null;
+      if (robot.refreshFailing) {
+        robot.refreshFailing = false;
+        this.logger.info(`Robot "${robot.name}" answers again`);
+      }
     } catch (err) {
       if (!(err instanceof DreameAuthError)) {
         robot.reachable = false;
         robot.lastError = err.message;
+        // Once when it starts failing, not at every refresh.
+        if (robot.refreshFailing) {
+          this.logger.debug(`Robot "${robot.name}" still does not answer: ${err.message}`);
+        } else {
+          robot.refreshFailing = true;
+          this.logger.warn(`Robot "${robot.name}" does not answer: ${err.message}`);
+        }
         await this.publishTransport(robot);
       }
       throw err;

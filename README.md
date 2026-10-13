@@ -27,8 +27,8 @@ documentation: [`docs/fr.md`](docs/fr.md), [`docs/en.md`](docs/en.md).
 - **Draws the map** for a dashboard widget, next to two others (quick cleaning
   buttons, maintenance).
 - **Pushes the changes in real time**: one MQTT connection per robot, on the
-  broker the robot is bound to. The Gladys poll (every minute) is only the safety
-  net. A state is published when it changes, and only for the robots created in
+  broker the robot is bound to. A refresh every minute, run by the integration
+  itself (the Gladys poll is only a fallback), is the safety net. A state is published when it changes, and only for the robots created in
   Gladys.
 - **Shows the transport** on the device: cloud, cloud _degraded_ when the
   real-time channel is down, unreachable when the robot does not answer.

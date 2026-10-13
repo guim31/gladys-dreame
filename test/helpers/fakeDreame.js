@@ -103,6 +103,8 @@ export async function startFakeDreame({
     props: initialProperties(),
     mqttRefusals: 0,
     mqttClients: 0,
+    // true: the robot answers "device offline", as when it is switched off.
+    offline: false,
     base: null,
     bindDomain: null,
   };
@@ -352,7 +354,7 @@ export async function startFakeDreame({
       if (url.pathname.endsWith('/device/sendCommand')) {
         const { did, data } = JSON.parse(body);
         state.commands.push({ path: url.pathname, method: data.method, params: data.params });
-        if (did !== ROBOT.did) {
+        if (did !== ROBOT.did || state.offline) {
           reply(200, { code: 80001, success: false, msg: 'device offline' });
           return;
         }

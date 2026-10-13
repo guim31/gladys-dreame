@@ -112,6 +112,7 @@ export class DreameMqttChannel {
     this.failures = 0;
     this.messages = 0;
     this.lastError = null;
+    this.renewalFailing = false;
   }
 
   /**
@@ -146,17 +147,17 @@ export class DreameMqttChannel {
       this.client.options.reconnectPeriod = DREAME_MQTT.RECONNECT_PERIOD_MS;
       this.client.subscribe(this.topics, { qos: 0 }, (err) => {
         if (err) {
-          this.logger.warn(`MQTT subscription refused for ${this.device.did}: ${err.message}`);
+          this.logger.warn(`MQTT subscription refused for "${this.device.name}": ${err.message}`);
         }
       });
-      this.logger.info(`Real-time channel open for ${this.device.did}`);
+      this.logger.info(`Real-time channel open for "${this.device.name}"`);
       this.onStatus(true);
     });
     // Ahead of mqtt.js's own listener, which schedules the next attempt with
     // the reconnectPeriod set here.
     this.client.prependListener('close', () => {
       if (this.connected) {
-        this.logger.warn(`Real-time channel closed for ${this.device.did}, reconnecting`);
+        this.logger.warn(`Real-time channel closed for "${this.device.name}", reconnecting`);
         this.connected = false;
         this.onStatus(false);
         return;
@@ -173,7 +174,7 @@ export class DreameMqttChannel {
       if (AUTH_REFUSED_CODES.has(err.code)) {
         this.renewCredentials();
       } else {
-        this.logger.debug(`MQTT error for ${this.device.did}: ${err.message}`);
+        this.logger.debug(`MQTT error for "${this.device.name}": ${err.message}`);
       }
     });
     this.client.on('message', (_topic, payload) => {
@@ -201,8 +202,15 @@ export class DreameMqttChannel {
         this.lastRenewal = Date.now();
       }
       this.useCredentials(await this.getCredentials(force));
+      this.renewalFailing = false;
     } catch (err) {
-      this.logger.warn(`Could not renew the MQTT credentials: ${err.message}`);
+      // Once when it starts failing, not at every reconnection attempt.
+      if (this.renewalFailing) {
+        this.logger.debug(`Could not renew the MQTT credentials: ${err.message}`);
+      } else {
+        this.renewalFailing = true;
+        this.logger.warn(`Could not renew the MQTT credentials: ${err.message}`);
+      }
     } finally {
       this.renewing = false;
     }
