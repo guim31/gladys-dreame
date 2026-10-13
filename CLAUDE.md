@@ -2,7 +2,7 @@
 
 Aspirateurs robots Dreamehome : nettoyage, aspiration, serpillière, pièces, raccourcis.
 
-Intégration externe pour [Gladys Assistant](https://gladysassistant.com), bâtie sur le template officiel `GladysAssistant/integration-template-js` (SDK `@gladysassistant/integration-sdk` ^0.14.0, `gladys_version` `>=5.1.0`). Mainteneur : Guilhem (`guim31`).
+Intégration externe pour [Gladys Assistant](https://gladysassistant.com), bâtie sur le template officiel `GladysAssistant/integration-template-js` (SDK `@gladysassistant/integration-sdk` ^0.15.0, `gladys_version` `>=5.1.0`). Mainteneur : Guilhem (`guim31`).
 
 Ce fichier rassemble ce qu'une session de code doit savoir et qui ne se lit pas dans le code : choix de conception, faits vérifiés en réel, pièges déjà payés. Le compléter quand un nouveau piège est découvert.
 
@@ -60,8 +60,12 @@ suivi par son r2449a (voir l'index fixe ci-dessous), la présence de `tr` dans l
 - Vérifié sans compte : un login refusé répond HTTP 400 `invalid_user`, pour un compte inconnu
   comme pour un mauvais mot de passe. La région ne se devine donc pas, d'où le champ région.
   Jeton expiré = 401 ; refresh token mort = 401 `invalid_token`.
-- Temps réel par MQTT (un client par robot, TLS non vérifié comme l'appli officielle), poll de
-  60 s en filet, publication des seuls changements.
+- Temps réel par MQTT (un client par robot, TLS non vérifié comme l'appli officielle),
+  rafraîchissement de 60 s en filet, publication des seuls changements. Le filet est un
+  **minuteur interne** (`startPolling()` / `pollAll()`, robots créés dans Gladys seulement) ;
+  `onPoll` reste en repli et ne relit pas un robot rafraîchi depuis moins de `FRESH_MS` (50 s),
+  et le minuteur saute de même un robot que Gladys vient de sonder : jamais de double lecture.
+  Voir le piège du polling (#3198) plus bas.
 - L'action **Diagnostic** (sans e-mail, did, uid, MAC ni nom de pièce) est l'outil de débogage à
   faire coller par le testeur. Son bloc de résultat défile : lui demander de tout copier.
 
@@ -130,6 +134,13 @@ left + (col+1)·g)`) : jusqu'à la 1.0.0 il décalait d'une demi-case vers la dr
 
 ## Pièges déjà payés
 
+- **Journaux** (13/10/2026, SDK 0.15) : rien en info pour un cycle normal (minuteur,
+  `onPoll`, message MQTT, redécouverte des 6 h) ; le résumé du compte n'est écrit en info que
+  s'il change, la trace « Rooms of » une fois par démarrage et par robot (Chris75 la colle) ;
+  un robot ou un cloud qui échoue est signalé une fois, puis une fois à son retour
+  (`refreshFailing`, `discoveryFailing`, `renewalFailing`). Jamais le did, l'uid, l'e-mail ni
+  un jeton dans un journal : les lignes nomment le robot. `test/polling.test.js` et la fin de
+  `test/e2e.test.js` le vérifient.
 - Sous Node 24, `mkdirSync(..., { recursive: true })` sur un chemin de `/proc` ne rend jamais la
   main.
 - Prettier retire les guillemets des clés `'2.1'` d'un objet littéral, et `4.10` devient `4.1` :
@@ -172,6 +183,12 @@ Vérifiés dans le code du cœur ou payés sur une intégration publiée. Ils va
   Publier seulement `poll_frequency` donne un appareil accepté mais jamais interrogé. Pour une
   cadence hors liste, publier `should_poll: false` et pousser les états depuis le conteneur, en
   gardant un `onPoll` de repli.
+- **Ces deux champs sont figés à la création** (GladysAssistant/Gladys#3198, correctif #3199 pas
+  publié en 5.2.0) : les republier ne met pas à jour un appareil déjà créé, et « Mettre à jour »
+  n'apparaît que sur un changement de fonctionnalités. Ici, `should_poll: true` est publié depuis
+  le premier commit, donc tous les robots créés sont sondés ; le filet passe malgré tout par un
+  minuteur interne (13/10/2026) pour ne dépendre ni du cœur ni d'une future migration. **Ne pas
+  changer** `should_poll` / `poll_frequency` publiés : rien n'y gagnerait.
 - **`min` et `max` sont NOT NULL** dans `t_device_feature`, y compris pour `text/text` : sans eux,
   « Ajouter à Gladys » échoue en HTTP 422. Mettre 0/0, comme Zigbee2MQTT.
 - `level-sensor/decimal` n'existe pas côté serveur. `light-sensor/binary` n'a pas de libellé dans

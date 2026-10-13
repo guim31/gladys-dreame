@@ -8,8 +8,8 @@
 //     the password is kept, to reopen the session silently afterwards;
 //   - publishes the robots as discovered devices (state, run mode, suction,
 //     dock, battery, error, rooms, app shortcuts, consumables);
-//   - publishes every change the robot pushes in real time, Gladys polling
-//     only as a safety net; forwards the user commands to the robot;
+//   - publishes every change the robot pushes in real time, a refresh every
+//     minute only as a safety net; forwards the user commands to the robot;
 //   - serves four dashboard widgets: the robot with its map, quick cleaning
 //     buttons, one setting as buttons, and the wear of its parts.
 //
@@ -39,9 +39,15 @@ gladys.onScanRequest(async () => {
 });
 
 // --- Devices ----------------------------------------------------------------
+// A fallback: the integration refreshes the robots itself every minute (Gladys
+// 5.2.0 may never poll them, GladysAssistant/Gladys#3198).
 gladys.onPoll((device) => dreame.poll(device));
 gladys.onSetValue((device, feature, value) => {
-  logger.info(`Command ${feature.external_id} = ${value}`);
+  // The feature code only: the external id carries the robot id.
+  const code = String(feature && feature.external_id)
+    .split(':')
+    .pop();
+  logger.info(`Command ${code} = ${value}`);
   return dreame.setValue(device, feature, value);
 });
 gladys.onDeviceCreated((device) => dreame.onDeviceCreated(device));

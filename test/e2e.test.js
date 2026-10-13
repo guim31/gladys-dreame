@@ -163,4 +163,10 @@ test('the integration, driven like the Gladys UI drives it', async (t) => {
     assert.equal(gladys.state.config[CONFIG_KEYS.REFRESH_TOKEN], '');
     assert.equal(gladys.state.config[CONFIG_KEYS.PASSWORD_HASH], '');
   });
+
+  await t.test('the logs, even at the debug level, give away no account detail', () => {
+    for (const secret of [ACCOUNT.password, ACCOUNT.username, ACCOUNT.uid, ROBOT.did, 'access-']) {
+      assert.ok(!output.includes(secret), `the logs give away ${secret}`);
+    }
+  });
 });
