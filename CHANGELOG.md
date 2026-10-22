@@ -9,6 +9,12 @@ Describe each change under `## [Unreleased]` as you make it.
 
 ## [Unreleased]
 
+### Security
+
+- Rebuilt on Node.js 24.22.1, the October 2026 security release (remote code
+  execution in the Brotli decoder, CVE-2026-111497; TLS hostname and DNS
+  fixes).
+
 ### Changed
 
 - The robots are refreshed every minute by the integration itself, as a safety
